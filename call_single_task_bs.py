@@ -22,34 +22,33 @@ perfs = {'A2C': np.zeros((3, num_tr)), 'ACER': np.zeros((3, num_tr)),
 algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
 algs = [A2C, ACER, ACKTR, PPO2]
 tasks = ['RDM', 'ROMO', 'DELAYRESPONSE']
-timing_2afct = {'fixation': [100, 100, 100],
-                'stimulus': [500, 200, 800],
-                'delay_btw_stim': [300, 200, 400],
-                'delay_aft_stim': [500, 200, 800],
-                'decision': [200, 200, 200]}
 for ind_tr in range(num_tr):
     for ind_alg, algorithm in enumerate(algs):
         # RDM
         alg = algs_names[ind_alg]
         for task in enumerate(tasks):
             if task == 'RDM':
-                timing = timing_2afct.copy()
-                # TIP: line below not necessary bc sim_stim == True
-                timing['delay_btw_stim'] = [0, 0, 0]
-                timing['delay_aft_stim'] = [0, 0, 0]
-                sim_stim = True
+                timing = {'fixation': [100, 100, 100],
+                          'stimulus': [500, 200, 800],
+                          'delay_aft_stim': [0, 0, 0],
+                          'decision': [200, 200, 200]}
+                simultaneous_stim = True
             elif task == 'ROMO':
-                timing = timing_2afct.copy()
-                timing['delay_btw_stim'] = [300, 200, 400]
-                timing['delay_aft_stim'] = [0, 0, 0]
-                sim_stim = False
+                timing = {'fixation': [100, 100, 100],
+                          'stimulus': [500, 200, 800],
+                          'delay_btw_stim': [300, 200, 400],
+                          'delay_aft_stim': [0, 0, 0],
+                          'decision': [200, 200, 200]}
+                simultaneous_stim = False
             elif task == 'DELAY RESPONSE':
-                # TIP: line below not necessary bc sim_stim == True
-                timing['delay_btw_stim'] = [0, 0, 0]
-                sim_stim = True
+                timing = {'fixation': [100, 100, 100],
+                          'stimulus': [500, 200, 800],
+                          'delay_aft_stim': [200, 100, 300],
+                          'decision': [200, 200, 200]}
+                simultaneous_stim = True
 
             env_args = {'timing': timing,
-                        'simultaneous_stim': sim_stim}
+                        'simultaneous_stim': simultaneous_stim}
             env = gym.make('2AFC-v0', **env_args)
             env = DummyVecEnv([lambda: env])
             model = algorithm(MlpPolicy, env, verbose=1)
