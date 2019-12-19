@@ -13,64 +13,51 @@ import neurogym
 import matplotlib.pyplot as plt
 from neurogym.ops import tasktools
 import numpy as np
-num_tr = 5
+plt.close('all')
+num_tr = 1
+n_stps_tr = 50000
 n_stps_tst = 5000
 perfs = {'A2C': np.zeros((3, num_tr)), 'ACER': np.zeros((3, num_tr)),
          'ACKTR': np.zeros((3, num_tr)), 'PPO2': np.zeros((3, num_tr))}
 algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
 algs = [A2C, ACER, ACKTR, PPO2]
-
+tasks = ['RDM', 'ROMO', 'DELAYRESPONSE']
+timing_2afct = {'fixation': [100, 100, 100],
+                'stimulus': [500, 200, 800],
+                'delay_btw_stim': [300, 200, 400],
+                'delay_aft_stim': [500, 200, 800],
+                'decision': [200, 200, 200]}
 for ind_tr in range(num_tr):
     for ind_alg, algorithm in enumerate(algs):
         # RDM
         alg = algs_names[ind_alg]
-        task = 'RDM'
-        timing = {'fixation': [500, 500, 500], 'stimulus': [500, 200, 800],
-                  'delay_aft_stim': [0, 0, 0], 'decision': [100, 100, 100]}
-        simultaneous_stim = True
-        env_args = {'timing': timing, 'simultaneous_stim': simultaneous_stim}
-        env = gym.make('2AFC-v0', **env_args)
-        env = DummyVecEnv([lambda: env])
-        model = algorithm(MlpPolicy, env, verbose=1)
-        model.learn(total_timesteps=50000)  # 50000)
-        perfs[alg][0, ind_tr] = tasktools.plot_struct(env,
-                                                      num_steps_env=n_stps_tst,
-                                                      model=model,
-                                                      name=alg+' '+task)
-        env.close()
-        
-        # ROMO
-        task = 'ROMO'
-        timing = {'fixation': [500, 500, 500], 'stimulus': [500, 200, 800],
-                  'delay_btw_stim': [500, 200, 800],
-                  'delay_aft_stim': [0, 0, 0], 'decision': [100, 100, 100]}
-        simultaneous_stim = False
-        env_args = {'timing': timing, 'simultaneous_stim': simultaneous_stim}
-        env = gym.make('2AFC-v0', **env_args)
-        env = DummyVecEnv([lambda: env])
-        model = algorithm(MlpPolicy, env, verbose=1)
-        model.learn(total_timesteps=50000)  # 50000)
-        perfs[alg][1, ind_tr] = tasktools.plot_struct(env,
-                                                      num_steps_env=n_stps_tst,
-                                                      model=model,
-                                                      name=alg+' '+task)
-        env.close()
-        
-        # DELAY RESPONSE
-        task = 'DELAY RESPONSE'
-        timing = {'fixation': [300, 300, 300], 'stimulus': [500, 200, 800],
-                  'delay_aft_stim': [200, 100, 300], 'decision': [100, 100, 100]}
-        simultaneous_stim = True
-        env_args = {'timing': timing, 'simultaneous_stim': simultaneous_stim}
-        env = gym.make('2AFC-v0', **env_args)
-        env = DummyVecEnv([lambda: env])
-        model = algorithm(MlpPolicy, env, verbose=1)
-        model.learn(total_timesteps=50000)  # 50000)
-        perfs[alg][2, ind_tr] = tasktools.plot_struct(env,
-                                                      num_steps_env=n_stps_tst,
-                                                      model=model,
-                                                      name=alg+' '+task)
-        plt.close('all')
-        env.close()
-        
-        
+        for task in enumerate(tasks):
+            if task == 'RDM':
+                timing = timing_2afct.copy()
+                # TIP: line below not necessary bc sim_stim == True
+                timing['delay_btw_stim'] = [0, 0, 0]
+                timing['delay_aft_stim'] = [0, 0, 0]
+                sim_stim = True
+            elif task == 'ROMO':
+                timing = timing_2afct.copy()
+                timing['delay_btw_stim'] = [300, 200, 400]
+                timing['delay_aft_stim'] = [0, 0, 0]
+                sim_stim = False
+            elif task == 'DELAY RESPONSE':
+                # TIP: line below not necessary bc sim_stim == True
+                timing['delay_btw_stim'] = [0, 0, 0]
+                sim_stim = True
+
+            env_args = {'timing': timing,
+                        'simultaneous_stim': sim_stim}
+            env = gym.make('2AFC-v0', **env_args)
+            env = DummyVecEnv([lambda: env])
+            model = algorithm(MlpPolicy, env, verbose=1)
+            model.learn(total_timesteps=n_stps_tr)  # 50000)
+            perfs[alg][0, ind_tr] =\
+                tasktools.plot_struct(env,
+                                      num_steps_env=n_stps_tst,
+                                      model=model,
+                                      name=alg+' '+task)
+            env.close()
+            plt.close('all')
