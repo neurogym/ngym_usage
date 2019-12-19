@@ -17,16 +17,15 @@ plt.close('all')
 num_tr = 1
 n_stps_tr = 50000
 n_stps_tst = 5000
-perfs = {'A2C': np.zeros((3, num_tr)), 'ACER': np.zeros((3, num_tr)),
-         'ACKTR': np.zeros((3, num_tr)), 'PPO2': np.zeros((3, num_tr))}
-algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
-algs = [A2C, ACER, ACKTR, PPO2]
 tasks = ['RDM', 'ROMO', 'DELAYRESPONSE']
+algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
+perfs = {alg: np.zeros((len(tasks), num_tr)) for alg in algs_names}
+algs = [A2C, ACER, ACKTR, PPO2]
 for ind_tr in range(num_tr):
     for ind_alg, algorithm in enumerate(algs):
         # RDM
         alg = algs_names[ind_alg]
-        for task in enumerate(tasks):
+        for task in tasks:
             if task == 'RDM':
                 timing = {'fixation': [100, 100, 100],
                           'stimulus': [500, 200, 800],
@@ -53,6 +52,8 @@ for ind_tr in range(num_tr):
             env = DummyVecEnv([lambda: env])
             model = algorithm(MlpPolicy, env, verbose=1)
             model.learn(total_timesteps=n_stps_tr)  # 50000)
+            print(task)
+            print(alg)
             perfs[alg][0, ind_tr] =\
                 tasktools.plot_struct(env,
                                       num_steps_env=n_stps_tst,
