@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 from neurogym.ops import tasktools
 import numpy as np
 plt.close('all')
-num_tr = 10
+num_tr = 5
 n_stps_tr = 50000
 n_stps_tst = 5000
-tasks = ['GNG', 'DPA', 'RDM', 'ROMO', 'DELAYRESPONSE']
+tasks = ['DPA', 'GNG', 'RDM', 'ROMO', 'DELAYRESPONSE']
 algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
 perfs = {alg: np.zeros((len(tasks), num_tr)) for alg in algs_names}
 algs = [A2C, ACER, ACKTR, PPO2]
@@ -76,7 +76,6 @@ for ind_tr in range(num_tr):
                 tasktools.plot_struct(env, num_steps_env=n_stps_tst,
                                       model=model, name=alg+' '+task)
             env.close()
-            sdf
             plt.close('all')
 plt.figure()
 for name in algs_names:
