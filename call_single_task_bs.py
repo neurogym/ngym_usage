@@ -24,8 +24,8 @@ from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
 num_tr = 10
-n_stps_tr = 1000  # 1000000
-n_tr_sv = 100  # 100000
+n_stps_tr = 1000000
+n_tr_sv = 100000
 # trial-history tasks params
 n_ch = 2
 tr_prob = 0.8
@@ -41,10 +41,9 @@ th = 0.8
 perf_w = 100
 init_ph = 0
 main_folder = '/home/molano/CV_learning/'
-tasks = ['DELAY-RESPONSE']
-tasks = ['DELAY-RESPONSE-cv', 'RDM-hist', 'ROMO-hist',
+tasks = ['DELAY-RESPONSE-cv', 'RDM-hist', 'ROMO-hist', 'DUAL-TASK',
          'DELAY-RESPONSE-hist', 'DPA', 'GNG', 'RDM', 'ROMO', 'DELAY-RESPONSE']
-# 'DUAL-TASK',
+# '
 algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
 algs = [A2C, ACER, ACKTR, PPO2]
 for ind_tr in range(num_tr):
@@ -190,8 +189,11 @@ for ind_tr in range(num_tr):
                                               init_ph=init_ph)
             env = md.manage_data(env, folder=folder, num_tr_save=n_tr_sv)
             env = DummyVecEnv([lambda: env])
-            model = algorithm(LstmPolicy, env, verbose=0)
-            model.learn(total_timesteps=n_stps_tr)  # 50000)
+            try:
+                model = algorithm(LstmPolicy, env, verbose=0)
+                model.learn(total_timesteps=n_stps_tr)  # 50000)
+            except:
+                print('could not train')
             env.close()
             plt.close('all')
 
@@ -209,6 +211,9 @@ for ind_tr in range(num_tr):
             files = ut.order_by_sufix(files)
             for file in files:
                 data = np.load(file)
-                plt.plot(np.convolve(data['first_rew'],
-                                 np.ones((nc,))/nc, mode='same'))
-
+                if 'first_rew' in list(data):
+                    plt.plot(np.convolve(data['first_rew'],
+                             np.ones((nc,))/nc, mode='same'))
+                else:
+                    plt.plot(np.convolve(data['reward'],
+                             np.ones((nc,))/nc, mode='same'))
