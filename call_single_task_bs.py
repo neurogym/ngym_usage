@@ -8,6 +8,8 @@ Created on Wed Dec 18 15:05:09 2019
 import matplotlib
 import sys
 import os
+import glob
+import numpy as np
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import A2C, ACER, ACKTR, PPO2
@@ -18,10 +20,12 @@ from neurogym.wrappers import trial_hist_nalt as thn
 from neurogym.wrappers import combine as comb
 from neurogym.wrappers import cv_learning as cv_l
 from neurogym.wrappers import manage_data as md
+from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
 num_tr = 10
-n_stps_tr = 1000000
+n_stps_tr = 1000  # 1000000
+n_tr_sv = 100  # 100000
 # trial-history tasks params
 n_ch = 2
 tr_prob = 0.8
@@ -184,9 +188,27 @@ for ind_tr in range(num_tr):
             if cv:
                 env = cv_l.CurriculumLearning(env, th=th, perf_w=perf_w,
                                               init_ph=init_ph)
-            env = md.manage_data(env, folder=folder, num_tr_save=100000)
+            env = md.manage_data(env, folder=folder, num_tr_save=n_tr_sv)
             env = DummyVecEnv([lambda: env])
             model = algorithm(LstmPolicy, env, verbose=0)
             model.learn(total_timesteps=n_stps_tr)  # 50000)
             env.close()
             plt.close('all')
+
+# plot
+nc = 100
+perfs = {alg: np.zeros((len(tasks), num_tr)) for alg in algs_names}
+plt.figure()
+for ind_tr in range(num_tr):
+    for ind_alg, algorithm in enumerate(algs):
+        # RDM
+        alg = algs_names[ind_alg]
+        for ind_t, task in enumerate(tasks):
+            folder = main_folder + task + '_' + alg + '_' + str(ind_tr) + '/'
+            files = glob.glob(folder + '/*bhvr_data*')
+            files = ut.order_by_sufix(files)
+            for file in files:
+                data = np.load(file)
+                plt.plot(np.convolve(data['first_rew'],
+                                 np.ones((nc,))/nc, mode='same'))
+
