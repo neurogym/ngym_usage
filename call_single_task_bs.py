@@ -17,7 +17,6 @@ import gym
 import neurogym
 import matplotlib.pyplot as plt
 from neurogym.wrappers import trial_hist_nalt as thn
-from neurogym.wrappers import combine as comb
 from neurogym.wrappers import cv_learning as cv_l
 from neurogym.wrappers import manage_data as md
 from priors.codes.ops import utils as ut
@@ -41,7 +40,7 @@ th = 0.8
 perf_w = 100
 init_ph = 0
 main_folder = '/home/molano/CV_learning/'
-tasks = ['DELAY-RESPONSE-cv', 'RDM-hist', 'ROMO-hist', 'DUAL-TASK',
+tasks = ['DUAL-TASK', 'DELAY-RESPONSE-cv', 'RDM-hist', 'ROMO-hist',
          'DELAY-RESPONSE-hist', 'DPA', 'GNG', 'RDM', 'ROMO', 'DELAY-RESPONSE']
 # '
 algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
@@ -171,22 +170,28 @@ for ind_tr in range(num_tr):
                 cv = True
             else:
                 sys.exit("'NO TASK!!'")
-            env_args = {'timing': timing, 'gng': gng, 'cohs': cohs,
-                        'simultaneous_stim': simultaneous_stim}
-            env = gym.make(ng_task, **env_args)
-            if hist:
-                thn.TrialHistory_NAlt(env, n_ch=n_ch, tr_prob=tr_prob,
-                                      block_dur=block_dur, trans=trans)
+
+            # combinations and wrappers
             if dual_task:
-                env_args = {'timing': timing_2, 'gng': gng_2, 'cohs': cohs_2,
+                params_1 = {'timing': timing}
+                params_2 = {'timing': timing_2, 'gng': gng_2, 'cohs': cohs_2,
                             'simultaneous_stim': simultaneous_stim_2}
-                env_2 = gym.make(ng_task, **env_args)
-                env = comb.combine(env, env_2, delay=delay, mix=mix,
-                                   share_action_space=share_action_space,
-                                   defaults=defaults)
-            if cv:
-                env = cv_l.CurriculumLearning(env, th=th, perf_w=perf_w,
-                                              init_ph=init_ph)
+
+                all_params = {'env_name_1': ng_task, 'env_name_2': ng_task_2,
+                              'params_1': params_1, 'params_2': params_2,
+                              'delay': 800, 'mix': [.3, .3, .4],
+                              'share_action_space': True, 'defaults': [0, 0]}
+                env = gym.make('Combine-v0', **all_params)
+            else:
+                env_args = {'timing': timing, 'gng': gng, 'cohs': cohs,
+                            'simultaneous_stim': simultaneous_stim}
+                env = gym.make(ng_task, **env_args)
+                if hist:
+                    thn.TrialHistory_NAlt(env, n_ch=n_ch, tr_prob=tr_prob,
+                                          block_dur=block_dur, trans=trans)
+                if cv:
+                    env = cv_l.CurriculumLearning(env, th=th, perf_w=perf_w,
+                                                  init_ph=init_ph)
             env = md.manage_data(env, folder=folder, num_tr_save=n_tr_sv)
             env = DummyVecEnv([lambda: env])
             try:
