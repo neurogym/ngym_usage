@@ -23,7 +23,7 @@ def inventory(folder):
         if alg not in algs:
             algs.append(alg)
         exps.append([env, alg])
-
+    
     return envs, algs, exps, files
 
 
@@ -53,17 +53,28 @@ def plot_perf_exp(folder, fig=True):
             tr_counter += data['reward'].shape[0]
 
 
-def plot_perf_all(folder):
+def plot_perf_all(folder, rows=3, cols=4, values=[.25, .5, .75]):
     envs, algs, exps, files = inventory(folder)
+    envs.sort()
     figs = []
     for ind_f in range(len(algs)):
         figs.append(plt.figure())
     for ind_f, f in enumerate(files):
         exp = exps[ind_f]
         plt.figure(figs[algs.index(exp[1])].number)
-        plt.subplot(3, 4, envs.index(exp[0])+1)
+        plt.subplot(rows, cols, envs.index(exp[0])+1)
         plot_perf_exp(f+'/', fig=False)
-        plt.title(exp[0] + '  ' + exp[1])
+    for ind_a, alg in enumerate(algs):
+        for ind_e, env in enumerate(envs):
+            plt.figure(figs[algs.index(alg)].number)
+            plt.subplot(rows, cols, envs.index(env)+1)
+            plt.title(env + '  ' + alg)
+            ax = plt.gca()
+            ax.set_ylim([0, 1])
+            xlims = ax.get_xlim()
+            for ind_v in values:
+                plt.plot(xlims, [ind_v]*2, '--y')
+            
 
 
 if __name__ == '__main__':

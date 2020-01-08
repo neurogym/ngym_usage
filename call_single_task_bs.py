@@ -22,7 +22,7 @@ from neurogym.wrappers import manage_data as md
 from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
-num_tr = 10
+num_tr = 3
 n_stps_tr = 1000000
 n_tr_sv = 10000
 # trial-history tasks params
@@ -83,7 +83,7 @@ for ind_tr in range(num_tr):
                 timing = {'fixation': [100, 100, 100],
                           'stimulus': [500, 200, 800],
                           'delay_btw_stim': [0, 0, 0],
-                          'delay_aft_stim': [0, 0, 0],  # MAIN CHANGE
+                          'delay_aft_stim': [200, 100, 300],  # MAIN CHANGE
                           'decision': [200, 200, 200]}
                 simultaneous_stim = True
                 gng = False
@@ -162,7 +162,7 @@ for ind_tr in range(num_tr):
                 timing = {'fixation': [100, 100, 100],
                           'stimulus': [500, 200, 800],
                           'delay_btw_stim': [0, 0, 0],
-                          'delay_aft_stim': [100, 100, 100],  # MAIN CHANGE
+                          'delay_aft_stim': [200, 100, 300],  # MAIN CHANGE
                           'decision': [200, 200, 200]}
                 simultaneous_stim = True
                 gng = False
@@ -195,6 +195,8 @@ for ind_tr in range(num_tr):
                     env = cv_l.CurriculumLearning(env, th=th, perf_w=perf_w,
                                                   init_ph=init_ph)
             env = md.manage_data(env, folder=folder, num_tr_save=n_tr_sv)
+                       
+            # RL
             env = DummyVecEnv([lambda: env])
             # TODO: save environment parameters
             try:
