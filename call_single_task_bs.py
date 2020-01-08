@@ -24,13 +24,14 @@ matplotlib.use('Qt5Agg')
 plt.close('all')
 num_tr = 10
 n_stps_tr = 1000000
-n_tr_sv = 100000
+n_tr_sv = 10000
 # trial-history tasks params
 n_ch = 2
 tr_prob = 0.8
 block_dur = 200
 trans = 'RepAlt'
 # dual-task params
+debug = False
 delay = 800
 mix = [.3, .3, .4]
 share_action_space = True
@@ -142,13 +143,13 @@ for ind_tr in range(num_tr):
             elif task == 'DUAL-TASK':
                 timing = {'fixation': [100, 100, 100],
                           'stimulus': [200, 100, 300],
-                          'delay_btw_stim': [200, 100, 300],
+                          'delay_btw_stim': [750, 500, 1000],
                           'delay_aft_stim': [200, 100, 300],
                           'decision': [200, 200, 200]}
                 ng_task = 'DPA-v1'  # MAIN CHANGE
                 simultaneous_stim = False
                 timing_2 = {'fixation': [100, 100, 100],
-                            'stimulus': [500, 200, 800],
+                            'stimulus': [200, 100, 300],
                             'delay_btw_stim': [0, 0, 0],
                             'delay_aft_stim': [200, 100, 300],
                             'decision': [200, 200, 200]}
@@ -179,8 +180,9 @@ for ind_tr in range(num_tr):
 
                 all_params = {'env_name_1': ng_task, 'env_name_2': ng_task_2,
                               'params_1': params_1, 'params_2': params_2,
-                              'delay': 800, 'mix': [.3, .3, .4],
-                              'share_action_space': True, 'defaults': [0, 0]}
+                              'delay': 200, 'mix': mix,
+                              'share_action_space': True, 'defaults': [0, 0],
+                              'debug': debug}
                 env = gym.make('Combine-v0', **all_params)
             else:
                 env_args = {'timing': timing, 'gng': gng, 'cohs': cohs,
@@ -197,8 +199,10 @@ for ind_tr in range(num_tr):
             try:
                 model = algorithm(LstmPolicy, env, verbose=0)
                 model.learn(total_timesteps=n_stps_tr)  # 50000)
-            except:
+            except Exception:
+                print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
                 print('could not train')
+                print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
             env.close()
             plt.close('all')
 
