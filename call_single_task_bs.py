@@ -196,6 +196,7 @@ for ind_tr in range(num_tr):
                                                   init_ph=init_ph)
             env = md.manage_data(env, folder=folder, num_tr_save=n_tr_sv)
             env = DummyVecEnv([lambda: env])
+            # TODO: save environment parameters
             try:
                 model = algorithm(LstmPolicy, env, verbose=0)
                 model.learn(total_timesteps=n_stps_tr)  # 50000)
@@ -212,7 +213,6 @@ perfs = {alg: np.zeros((len(tasks), num_tr)) for alg in algs_names}
 plt.figure()
 for ind_tr in range(num_tr):
     for ind_alg, algorithm in enumerate(algs):
-        # RDM
         alg = algs_names[ind_alg]
         for ind_t, task in enumerate(tasks):
             folder = main_folder + task + '_' + alg + '_' + str(ind_tr) + '/'
