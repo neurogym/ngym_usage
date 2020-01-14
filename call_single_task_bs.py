@@ -24,6 +24,31 @@ from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
 
+def test_env(env, num_steps=100):
+    """Test if all one environment can at least be run."""
+    kwargs = {'dt': 100}
+    env = gym.make(env, **kwargs)
+    env.reset()
+    for stp in range(num_steps):
+        action = env.action_space.sample()
+        state, rew, done, info = env.step(action)
+        if done:
+            env.reset()
+    return env
+
+
+def get_mean_trial_duration(num_steps=1000):
+    num_tr = {}
+    for i, env_name in enumerate(sorted(all_tasks.keys())):
+        if env_name in ['Combine-v0']:
+            continue
+        env = test_env(env_name, num_steps=num_steps)
+        num_tr[env_name] = env.num_tr
+        print(env_name)
+        print(env.num_tr)
+        print('xxxxxxxxxxxxxxxxxxxx')
+    return num_tr
+
 
 def run_env(algorithm, env, env_args=None, folder='', n_stps_tr=2000000):
     env = DummyVecEnv([lambda: env])
@@ -31,10 +56,6 @@ def run_env(algorithm, env, env_args=None, folder='', n_stps_tr=2000000):
     model.learn(total_timesteps=n_stps_tr)  # 50000)
     if env_args is not None:
         np.savez(folder + '/params.npz', **env_args)
-    #    except Exception:
-    #        print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
-    #        print('could not train')
-    #        print('XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX')
     env.close()
     plt.close('all')
 
@@ -257,10 +278,12 @@ def run_predefined_envs():
                                  np.ones((nc,))/nc, mode='same'))
 
 
-def run_original_envs(num_tr=3, n_stps_tr=2000000, n_tr_sv=20000,
+def run_original_envs(num_tr=3, n_tr=10010, n_tr_sv=10000,
                       main_folder=''):
     """Test if all environments can at least be run with baselines-stable."""
-    success_count = 0
+    nsts = 1000
+    num_tr_in_tasks = get_mean_trial_duration(num_steps=nsts)
+#    success_count = 0
     total_count = 0
     algs = [A2C, ACER, ACKTR, PPO2]
     algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
@@ -268,37 +291,39 @@ def run_original_envs(num_tr=3, n_stps_tr=2000000, n_tr_sv=20000,
     for ind_tr in range(num_tr):
         for ind_alg, algorithm in enumerate(algs):
             alg = algs_names[ind_alg]
-            for env_name in sorted(all_tasks.keys()):
+            for ind_env, env_name in enumerate(sorted(all_tasks.keys())):
                 if env_name in ['Combine-v0']:
                     continue
                 total_count += 1
-                print('Running env: {:s}'.format(env_name))
-                # env = test_run(env_name)
-                # try:
-                kwargs = {'dt': 100}
-                env = gym.make(env_name, **kwargs)
-                if main_folder != '':
-                    folder = main_folder + env_name + '_' +\
-                        alg + '_' + str(ind_tr) + '/'
-                    if not os.path.exists(folder):
-                        os.makedirs(folder)
+                folder = main_folder + env_name + '_' + alg + '_' +\
+                    str(ind_tr) + '/'
+                if not os.path.exists(folder):
+                    os.makedirs(folder)
+                if not os.path.exists(folder + 'params.npz'):
+                    print('Running env: {:s}'.format(env_name))
+                    n_stps_tr = int(nsts*n_tr/num_tr_in_tasks[env_name])
+                    #                print(num_tr_in_tasks[env_name])
+                    #                print(n_stps_tr)
+                    # try:
+                    kwargs = {'dt': 100}
+                    env = gym.make(env_name, **kwargs)
                     env = md.manage_data(env, folder=folder,
                                          num_tr_save=n_tr_sv)
-                    kwargs['env'] = env
+                    kwargs['env'] = env_name
                     kwargs['n_tr_sv'] = n_tr_sv
+                    kwargs['n_tr'] = n_tr
                     kwargs['n_stps_tr'] = n_stps_tr
-                else:
-                    kwargs = None
-                env.reset()
-                run_env(algorithm, env, n_stps_tr=n_stps_tr,
-                        env_args=kwargs, folder=folder)
-                print('Success')
-                # print(env)
-                success_count += 1
+                    env.reset()
+                    run_env(algorithm, env, n_stps_tr=n_stps_tr,
+                            env_args=kwargs, folder=folder)
+#                print('Success')
+#                print(env)
+#               success_count += 1
 #                except BaseException as e:
 #                    print('Failure at running env: {:s}'.format(env_name))
 #                    print(e)
-            print('Success {:d}/{:d} tasks'.format(success_count, total_count))
+#            print('Success {:d}/{:d} tasks'.format(success_count,
+#                  total_count))
 
 
 if __name__ == '__main__':
