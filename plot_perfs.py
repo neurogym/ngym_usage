@@ -23,7 +23,6 @@ def inventory(folder):
         if alg not in algs:
             algs.append(alg)
         exps.append([env, alg])
-    
     return envs, algs, exps, files
 
 
@@ -33,24 +32,29 @@ def plot_perf_exp(folder, fig=True):
     colors = 'rgbkm'
     if fig:
         plt.figure()
-    tr_counter = 0
+    rew_mat = np.empty((0,))
+    inds_ph_mat = np.empty((0,))
     for file in files:
         data = np.load(file)
         if file.find('CurriculumLearning') != -1:
-            for ind_ph in range(5):
-                inds_ph = data['curr_ph'] == ind_ph
-                if np.sum(inds_ph):
-                    nc = min(N_CONV, np.sum(inds_ph))
-                    plt.plot(np.arange(np.sum(inds_ph))+tr_counter,
-                             np.convolve(data['first_rew'][inds_ph],
-                                         np.ones((nc,))/nc, mode='same'),
-                             color=colors[ind_ph])
-                    tr_counter += np.sum(inds_ph)
+            rew_mat = np.concatenate((rew_mat, data['first_rew']))
+            inds_ph_mat = np.concatenate((inds_ph_mat, data['curr_ph']))
         else:
-            plt.plot(np.arange(data['reward'].shape[0])+tr_counter,
-                     np.convolve(data['reward'], np.ones((N_CONV,))/N_CONV,
-                                 mode='same'), color='k')
-            tr_counter += data['reward'].shape[0]
+            rew_mat = np.concatenate((rew_mat, data['reward']))
+    if file.find('CurriculumLearning') != -1:
+        tr_counter = 0
+        for ind_ph in range(5):
+            inds_ph = inds_ph_mat == ind_ph
+            if np.sum(inds_ph):
+                nc = min(N_CONV, np.sum(inds_ph))
+                plt.plot(np.arange(np.sum(inds_ph))+tr_counter,
+                         np.convolve(rew_mat[inds_ph],
+                                     np.ones((nc,))/nc, mode='same'),
+                         color=colors[ind_ph])
+                tr_counter += np.sum(inds_ph)
+    else:
+        plt.plot(np.convolve(rew_mat, np.ones((N_CONV,))/N_CONV,
+                             mode='same'), color='k')
 
 
 def plot_perf_all(folder, rows=3, cols=4, values=[.25, .5, .75]):
@@ -79,5 +83,5 @@ def plot_perf_all(folder, rows=3, cols=4, values=[.25, .5, .75]):
 
 if __name__ == '__main__':
     plt.close('all')
-    main_folder = '/home/molano/CV_learning/'
+    main_folder = '/home/molano/ngym_usage/results/'
     plot_perf_all(main_folder)
