@@ -5,6 +5,8 @@ Created on Wed Dec 18 15:05:09 2019
 
 @author: manuel
 """
+import tensorflow as tf
+from tensorflow.keras import layers
 import matplotlib
 import sys
 import os
@@ -23,6 +25,7 @@ from neurogym.wrappers import manage_data as md
 from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
+
 
 def test_env(env, num_steps=100):
     """Test if all one environment can at least be run."""
@@ -278,7 +281,7 @@ def run_predefined_envs():
                                  np.ones((nc,))/nc, mode='same'))
 
 
-def run_original_envs(num_tr=3, n_tr=10010, n_tr_sv=10000,
+def run_original_envs(num_tr=3, n_tr=1000000, n_tr_sv=10000,
                       main_folder=''):
     """Test if all environments can at least be run with baselines-stable."""
     nsts = 1000
@@ -326,5 +329,58 @@ def run_original_envs(num_tr=3, n_tr=10010, n_tr_sv=10000,
 #                  total_count))
 
 
+def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000, dt=100,
+                       nstps_test=1000, n_stps_sample=128):
+    env = test_env(env_name, num_steps=nstps_test)
+    num_steps = int(nstps_test*n_tr/env.num_tr)
+    num_samples = int(np.floor(num_steps/n_stps_sample))
+    num_steps = n_stps_sample*num_samples
+    num_steps_per_trial = int(nstps_test/env.num_tr)
+    kwargs = {'dt': dt}
+    env = gym.make(env_name, **kwargs)
+    env.reset()
+    # TODO: this assumes 1-D observations
+    samples = np.empty((num_samples, n_stps_sample,
+                        env.observation_space.shape[0]))
+    target = np.empty((num_samples, n_stps_sample))
+    print('Task: ', env_name)
+    print('Producing dataset with {0} steps'.format(num_steps) +
+          'and {0} trials'.format(n_tr) +
+          '({0} steps per trial)'.format(num_steps_per_trial))
+    print('Number of samples: ', num_samples)
+    for stp in range(num_steps):
+        action = env.action_space.sample()
+        state, rew, done, info = env.step(action)
+        samples[int(stp/n_stps_sample), stp % n_stps_sample, :] = state
+        target[int(stp/n_stps_sample), stp % n_stps_sample] = info['gt']
+        if stp % (10000*n_stps_sample) == 0:
+            print(int(stp/n_stps_sample))
+
+    return samples, target
+
+
 if __name__ == '__main__':
-    run_original_envs(main_folder='/home/molano/ngym_usage/results/')
+    batch_size = 128
+    num_h = 258
+    # run_original_envs(main_folder='/home/molano/ngym_usage/results/')
+    samples, target = get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
+                                         dt=100, nstps_test=1000,
+                                         n_stps_sample=batch_size)
+    plt.figure()
+    plt.imshow(samples[0, :, :].T,  aspect='auto')
+    plt.figure()
+    plt.plot(target[0, :])
+
+    # from https://www.tensorflow.org/guide/keras/rnn
+    model = tf.keras.Sequential()
+
+    # Add a LSTM layer with 128 internal units.
+    model.add(layers.LSTM(num_h, input_shape=(1, 3),
+                          activation='relu'))
+
+    # Add a Dense layer with 10 units and softmax activation.
+    model.add(layers.Dense(3, activation='softmax'))
+
+    model.summary()
+    model.compile(loss='sparse_categorical_crossentropy', optimizer='sgd')
+    model.fit(samples, target, batch_size=batch_size, epochs=5)
