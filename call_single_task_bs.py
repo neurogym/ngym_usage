@@ -342,12 +342,13 @@ def run_original_envs(main_folder='', **kwargs):
 
 
 def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000, dt=100,
-                       nstps_test=1000, verbose=0):
+                       nstps_test=1000, verbose=0, seed=None):
     env = test_env(env_name, num_steps=nstps_test)
     num_steps = int(nstps_test*n_tr/env.num_tr)
     num_steps_per_trial = int(nstps_test/env.num_tr)
     kwargs = {'dt': dt}
     env = gym.make(env_name, **kwargs)
+    env.seed(seed)
     env.reset()
     # TODO: this assumes 1-D observations
     samples = np.empty((num_steps, env.observation_space.shape[0]))
@@ -392,40 +393,27 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
 
     num_ep = int(num_tr/tr_per_ep)
     loss_training = []
-    rew_training = []
+    acc_training = []
+#    rew_training = []
     for ind_ep in range(num_ep):
         if verbose:
             print('epoch {0} out of {1}'.format(ind_ep, num_ep))
+        # train
         samples, target = get_dataset_for_SL(env_name=env_name, dt=dt,
                                              n_tr=tr_per_ep)
-        assert (abs(target) < 10).all()
         samples = np.expand_dims(samples, 2)
         model.fit(samples, target, batch_size=b_size, epochs=1, verbose=0)
-        kwargs = {'dt': dt}
-        env = gym.make(env_name, **kwargs)
-        env.reset()
-        action = 0
-        rew_temp = []
-        for ind_act in range(tr_per_ep):
-            obs, rew, _, info = env.step(action)
-            rew_temp.append(rew)
-            obs = np.expand_dims(obs, 0)
-            obs = np.expand_dims(obs, 2)
-            #            print('obs.shape: ', obs.shape)
-            #            print('rew: ', rew)
-            #            print('info: ', info)
-            #            print('action: ', action)
-            action = model.predict(obs)
-        rew_training.append(np.mean(rew_temp))
-        #        loss_training.append(loss)
-        #        acc_training.append(acc)
-    fig = plt.figure()
-#    plt.subplot(1, 2, 1)
-    plt.plot(rew_training)
-#    plt.subplot(1, 2, 2)
-#    plt.plot(loss_training)
-#    plt.close(fig)
-    asdasd
+        # test
+        samples, target = get_dataset_for_SL(env_name=env_name, dt=dt,
+                                             n_tr=tr_per_ep)
+        samples = np.expand_dims(samples, 2)
+        loss, acc = model.evaluate(samples, target)
+        loss_training.append(loss)
+        acc_training.append(acc)
+        if acc > 0.96:
+            break
+        # evaluate in task
+        # eval_net_in_task()
     data = {'acc': acc_training, 'loss': loss_training}
     np.savez(folder + 'training.npz', **data)
     fig = plt.figure()
@@ -435,7 +423,57 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
     plt.plot(loss_training)
     fig.savefig(folder + 'performance.png')
     plt.close(fig)
+    eval_net_in_task(model, env_name, dt, tr_per_ep)
+    return model
+
+
+def eval_net_in_task(model, env_name, dt, tr_per_ep):
+    kwargs = {'dt': dt, 'timing': {'decision': ('constant', 100)}}
+    env = gym.make(env_name, **kwargs)
+    obs = env.reset()
+    rew_temp = []
+    observations = []
+    rewards = []
+    actions = []
+    gt = []
+    action = 0
+    for ind_act in range(tr_per_ep):
+        obs, rew, _, info = env.step(action)
+        obs = np.expand_dims(obs, 0)
+        obs = np.expand_dims(obs, 2)
+        action = model.predict(obs)
+        action = np.argmax(action)
+        rew_temp.append(rew)
+        observations.append(obs[0, :, 0])
+        rewards.append(rew)
+        actions.append(action)
+        gt.append(info['gt'])
+
+    n_stps_plt = tr_per_ep
+    observations = np.array(observations)
+    plt.figure()
+    plt.subplot(3, 1, 1)
+    plt.imshow(observations[:n_stps_plt, :].T, aspect='auto')
+    plt.title('observations')
+    plt.subplot(3, 1, 2)
+    plt.plot(actions[:n_stps_plt], marker='+')
+    gt = np.array(gt)
+    if len(gt.shape) == 2:
+        gt = np.argmax(gt, axis=1)
+    plt.plot(gt[:n_stps_plt], 'r')
+    plt.title('actions')
+    plt.xlim([-0.5, n_stps_plt+0.5])
+    plt.subplot(3, 1, 3)
+    plt.plot(rewards[:n_stps_plt], 'r')
+    plt.title('reward')
+    plt.xlim([-0.5, n_stps_plt+0.5])
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == '__main__':
-    run_original_envs(main_folder='/home/molano/ngym_usage/results/')
+    eval_net_in_task(model, 'RDM-v0', dt=100, tr_per_ep=1000)
+#    model = train_env_keras_net('RDM-v0', '/home/molano/ngym_usage/results/tests/',
+#                                num_h=256, b_size=128,
+#                                num_tr=200000, tr_per_ep=1000, dt=100, verbose=1)
+#    run_original_envs(main_folder='/home/molano/ngym_usage/results/')
