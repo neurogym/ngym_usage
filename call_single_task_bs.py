@@ -25,6 +25,28 @@ from neurogym.wrappers import manage_data as md
 from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
+loss_functions = {'AntiReach-v0': 'mean_squared_error',
+                  'Bandit-v0': 'sparse_categorical_crossentropy',
+                  'DPA-v0': 'sparse_categorical_crossentropy',
+                  'DawTwoStep-v0': 'sparse_categorical_crossentropy',
+                  'DelayedMatchCategory-v0': 'sparse_categorical_crossentropy',
+                  'DelayedMatchSample-v0': 'sparse_categorical_crossentropy',
+                  'DelayedMatchToSampleDistractor1D-v0':
+                      'sparse_categorical_crossentropy',
+                  'DelayedResponse-v0': 'sparse_categorical_crossentropy',
+                  'GNG-v0': 'sparse_categorical_crossentropy',
+                  'Mante-v0': 'sparse_categorical_crossentropy',
+                  'MatchingPenny-v0': 'sparse_categorical_crossentropy',
+                  'MemoryRecall-v0': 'sparse_categorical_crossentropy',
+                  'MotorTiming-v0': 'mean_squared_error',
+                  'NAltRDM-v0': 'sparse_categorical_crossentropy',
+                  'RDM-v0': 'sparse_categorical_crossentropy',
+                  'Reaching1D-v0': 'mean_squared_error',
+                  'Reaching1DWithSelfDistraction-v0': 'mean_squared_error',
+                  'ReadySetGo-v0': 'no-SL',
+                  'Romo-v0': 'sparse_categorical_crossentropy',
+                  'padoaSch-v0': 'sparse_categorical_crossentropy',
+                  'pdWager-v0': 'sparse_categorical_crossentropy'}
 
 
 def test_env(env, num_steps=100):
@@ -237,10 +259,10 @@ def run_predefined_envs():
                                     'simultaneous_stim': simultaneous_stim}
                         env = gym.make(ng_task, **env_args)
                         if hist:
-                            thn.TrialHistory_NAlt(env, n_ch=n_ch,
-                                                  tr_prob=tr_prob,
-                                                  block_dur=block_dur,
-                                                  trans=trans)
+                            env = thn.TrialHistory_NAlt(env, n_ch=n_ch,
+                                                        tr_prob=tr_prob,
+                                                        block_dur=block_dur,
+                                                        trans=trans)
                             env_args['hist'] = True
                             env_args['n_ch'] = n_ch
                             env_args['tr_prob'] = tr_prob
@@ -281,106 +303,139 @@ def run_predefined_envs():
                                  np.ones((nc,))/nc, mode='same'))
 
 
-def run_original_envs(num_tr=3, n_tr=1000000, n_tr_sv=10000,
-                      main_folder=''):
-    """Test if all environments can at least be run with baselines-stable."""
-    nsts = 1000
-    num_tr_in_tasks = get_mean_trial_duration(num_steps=nsts)
-#    success_count = 0
+def run_original_envs(main_folder='', **kwargs):
+    """
+    Test if all environments can at least be learn with sup. learning
+    """
+    params = {'num_instances': 3, 'num_h': 256, 'b_size': 128,
+              'num_tr': 200000, 'tr_per_ep': 100, 'dt': 100}
+    params.update(kwargs)
+    success_count = 0
     total_count = 0
-    algs = [A2C, ACER, ACKTR, PPO2]
-    algs_names = ['A2C', 'ACER', 'ACKTR', 'PPO2']
-
-    for ind_tr in range(num_tr):
-        for ind_alg, algorithm in enumerate(algs):
-            alg = algs_names[ind_alg]
-            for ind_env, env_name in enumerate(sorted(all_tasks.keys())):
-                if env_name in ['Combine-v0']:
-                    continue
-                total_count += 1
-                folder = main_folder + env_name + '_' + alg + '_' +\
-                    str(ind_tr) + '/'
+    for ind_tr in range(params['num_instances']):
+        for ind_env, env_name in enumerate(sorted(all_tasks.keys())):
+            if env_name in ['Combine-v0']:
+                continue
+            total_count += 1
+            if (env_name in loss_functions.keys() and
+               loss_functions[env_name] != 'no-SL'):
+                folder = main_folder + env_name + '_' + str(ind_tr) + '/'
                 if not os.path.exists(folder):
                     os.makedirs(folder)
                 if not os.path.exists(folder + 'params.npz'):
                     print('Running env: {:s}'.format(env_name))
-                    n_stps_tr = int(nsts*n_tr/num_tr_in_tasks[env_name])
-                    #                print(num_tr_in_tasks[env_name])
-                    #                print(n_stps_tr)
                     # try:
-                    kwargs = {'dt': 100}
-                    env = gym.make(env_name, **kwargs)
-                    env = md.manage_data(env, folder=folder,
-                                         num_tr_save=n_tr_sv)
-                    kwargs['env'] = env_name
-                    kwargs['n_tr_sv'] = n_tr_sv
-                    kwargs['n_tr'] = n_tr
-                    kwargs['n_stps_tr'] = n_stps_tr
-                    env.reset()
-                    run_env(algorithm, env, n_stps_tr=n_stps_tr,
-                            env_args=kwargs, folder=folder)
-#                print('Success')
-#                print(env)
-#               success_count += 1
-#                except BaseException as e:
-#                    print('Failure at running env: {:s}'.format(env_name))
-#                    print(e)
-#            print('Success {:d}/{:d} tasks'.format(success_count,
-#                  total_count))
+                    train_env_keras_net(env_name, folder,
+                                        num_h=params['num_h'],
+                                        b_size=params['b_size'],
+                                        num_tr=params['num_tr'],
+                                        tr_per_ep=params['tr_per_ep'],
+                                        dt=params['dt'])
+                    print('Success')
+                    success_count += 1
+                    np.savez(folder + 'params.npz', **params)
+    #                except BaseException as e:
+    #                print('Failure at running env: {:s}'.format(env_name))
+    #                print(e)
+    print('Success {:d}/{:d} tasks'.format(success_count,
+          total_count))
 
 
 def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000, dt=100,
-                       nstps_test=1000, n_stps_sample=128):
+                       nstps_test=1000, verbose=0):
     env = test_env(env_name, num_steps=nstps_test)
     num_steps = int(nstps_test*n_tr/env.num_tr)
-    num_samples = int(np.floor(num_steps/n_stps_sample))
-    num_steps = n_stps_sample*num_samples
     num_steps_per_trial = int(nstps_test/env.num_tr)
     kwargs = {'dt': dt}
     env = gym.make(env_name, **kwargs)
     env.reset()
     # TODO: this assumes 1-D observations
-    samples = np.empty((num_samples, n_stps_sample,
-                        env.observation_space.shape[0]))
-    target = np.empty((num_samples, n_stps_sample))
-    print('Task: ', env_name)
-    print('Producing dataset with {0} steps'.format(num_steps) +
-          'and {0} trials'.format(n_tr) +
-          '({0} steps per trial)'.format(num_steps_per_trial))
-    print('Number of samples: ', num_samples)
-    for stp in range(num_steps):
-        action = env.action_space.sample()
-        state, rew, done, info = env.step(action)
-        samples[int(stp/n_stps_sample), stp % n_stps_sample, :] = state
-        target[int(stp/n_stps_sample), stp % n_stps_sample] = info['gt']
-        if stp % (10000*n_stps_sample) == 0:
-            print(int(stp/n_stps_sample))
-
+    samples = np.empty((num_steps, env.observation_space.shape[0]))
+    target = np.empty((num_steps,))
+    if verbose:
+        print('Task: ', env_name)
+        print('Producing dataset with {0} steps'.format(num_steps) +
+              'and {0} trials'.format(n_tr) +
+              '({0} steps per trial)'.format(num_steps_per_trial))
+    count_stps = 0
+    for tr in range(n_tr):
+        env.new_trial()
+        obs = env.obs
+        gt = env.gt
+        assert (abs(gt) < 10).all(), str(obs)
+        samples[count_stps:count_stps+obs.shape[0], :] = obs
+        target[count_stps:count_stps+gt.shape[0]] = gt
+        count_stps += obs.shape[0]
+        assert obs.shape[0] == gt.shape[0]
+    samples = samples[0:count_stps, :]
+    target = target[0:count_stps]
     return samples, target
 
 
-if __name__ == '__main__':
-    batch_size = 128
-    num_h = 258
-    # run_original_envs(main_folder='/home/molano/ngym_usage/results/')
-    samples, target = get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
-                                         dt=100, nstps_test=1000,
-                                         n_stps_sample=batch_size)
-    plt.figure()
-    plt.imshow(samples[0, :, :].T,  aspect='auto')
-    plt.figure()
-    plt.plot(target[0, :])
-
+def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
+                        num_tr=200000, tr_per_ep=1000, dt=100, verbose=1):
+    env = test_env(env_name, num_steps=1)
     # from https://www.tensorflow.org/guide/keras/rnn
     model = tf.keras.Sequential()
-
-    # Add a LSTM layer with 128 internal units.
-    model.add(layers.LSTM(num_h, input_shape=(1, 3),
+    # Add a LSTM layer
+    model.add(layers.LSTM(num_h, input_shape=(env.obs.shape[1], 1),
                           activation='relu'))
-
-    # Add a Dense layer with 10 units and softmax activation.
-    model.add(layers.Dense(3, activation='softmax'))
-
+    # Add a Dense layer
+    if loss_functions[env_name] == 'mean_squared_error':
+        n_outputs = 1
+    else:
+        n_outputs = env.action_space.n
+    model.add(layers.Dense(n_outputs, activation='softmax'))
     model.summary()
-    model.compile(loss='sparse_categorical_crossentropy', optimizer='sgd')
-    model.fit(samples, target, batch_size=batch_size, epochs=5)
+    model.compile(loss=loss_functions[env_name], optimizer='sgd',
+                  metrics=['accuracy'])
+
+    num_ep = int(num_tr/tr_per_ep)
+    loss_training = []
+    rew_training = []
+    for ind_ep in range(num_ep):
+        if verbose:
+            print('epoch {0} out of {1}'.format(ind_ep, num_ep))
+        samples, target = get_dataset_for_SL(env_name=env_name, dt=dt,
+                                             n_tr=tr_per_ep)
+        assert (abs(target) < 10).all()
+        samples = np.expand_dims(samples, 2)
+        model.fit(samples, target, batch_size=b_size, epochs=1, verbose=0)
+        kwargs = {'dt': dt}
+        env = gym.make(env_name, **kwargs)
+        env.reset()
+        action = 0
+        rew_temp = []
+        for ind_act in range(tr_per_ep):
+            obs, rew, _, info = env.step(action)
+            rew_temp.append(rew)
+            obs = np.expand_dims(obs, 0)
+            obs = np.expand_dims(obs, 2)
+            #            print('obs.shape: ', obs.shape)
+            #            print('rew: ', rew)
+            #            print('info: ', info)
+            #            print('action: ', action)
+            action = model.predict(obs)
+        rew_training.append(np.mean(rew_temp))
+        #        loss_training.append(loss)
+        #        acc_training.append(acc)
+    fig = plt.figure()
+#    plt.subplot(1, 2, 1)
+    plt.plot(rew_training)
+#    plt.subplot(1, 2, 2)
+#    plt.plot(loss_training)
+#    plt.close(fig)
+    asdasd
+    data = {'acc': acc_training, 'loss': loss_training}
+    np.savez(folder + 'training.npz', **data)
+    fig = plt.figure()
+    plt.subplot(1, 2, 1)
+    plt.plot(acc_training)
+    plt.subplot(1, 2, 2)
+    plt.plot(loss_training)
+    fig.savefig(folder + 'performance.png')
+    plt.close(fig)
+
+
+if __name__ == '__main__':
+    run_original_envs(main_folder='/home/molano/ngym_usage/results/')
