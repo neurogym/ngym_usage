@@ -5,6 +5,7 @@ Created on Wed Dec 18 15:05:09 2019
 
 @author: manuel
 """
+import time
 import tensorflow as tf
 from tensorflow.keras import layers
 import matplotlib
@@ -75,14 +76,11 @@ def get_mean_trial_duration(num_steps=1000):
     return num_tr
 
 
-def run_env(algorithm, env, env_args=None, folder='', n_stps_tr=2000000):
+def run_env(algorithm, env, n_stps_tr=2000000, verbose=0):
     env = DummyVecEnv([lambda: env])
-    model = algorithm(LstmPolicy, env, verbose=0)
-    model.learn(total_timesteps=n_stps_tr)  # 50000)
-    if env_args is not None:
-        np.savez(folder + '/params.npz', **env_args)
-    env.close()
-    plt.close('all')
+    model = algorithm(LstmPolicy, env, verbose=verbose)
+    model.learn(total_timesteps=n_stps_tr)
+    return model
 
 
 def run_predefined_envs():
@@ -341,13 +339,12 @@ def run_original_envs(main_folder='', **kwargs):
           total_count))
 
 
-def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000, dt=100,
+def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
                        nstps_test=1000, verbose=0, seed=None):
     env = test_env(env_name, num_steps=nstps_test)
     num_steps = int(nstps_test*n_tr/env.num_tr)
     num_steps_per_trial = int(nstps_test/env.num_tr)
-    kwargs = {'dt': dt}
-    env = gym.make(env_name, **kwargs)
+    env = gym.make(env_name, **KWARGS)
     env.seed(seed)
     env.reset()
     # TODO: this assumes 1-D observations
@@ -360,21 +357,30 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000, dt=100,
               '({0} steps per trial)'.format(num_steps_per_trial))
     count_stps = 0
     for tr in range(n_tr):
-        env.new_trial()
         obs = env.obs
         gt = env.gt
-        assert (abs(gt) < 10).all(), str(obs)
         samples[count_stps:count_stps+obs.shape[0], :] = obs
         target[count_stps:count_stps+gt.shape[0]] = gt
         count_stps += obs.shape[0]
         assert obs.shape[0] == gt.shape[0]
-    samples = samples[0:count_stps, :]
-    target = target[0:count_stps]
-    return samples, target
+        env.new_trial()
+
+    samples = samples[:count_stps, :]
+    target = target[:count_stps]
+    #    start = 50
+    #    ntr = 100
+    #    plt.figure()
+    #    plt.subplot(2, 1, 1)
+    #    plt.imshow(samples[start:start+ntr, :].T, aspect='auto')
+    #    plt.subplot(2, 1, 2)
+    #    plt.plot(target[start:start+ntr])
+    #    plt.xlim([-0.5, ntr-0.5])
+    #    asd
+    return samples, target, env
 
 
 def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
-                        num_tr=200000, tr_per_ep=1000, dt=100, verbose=1):
+                        num_tr=200000, tr_per_ep=1000, verbose=1):
     env = test_env(env_name, num_steps=1)
     # from https://www.tensorflow.org/guide/keras/rnn
     model = tf.keras.Sequential()
@@ -386,94 +392,148 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
         n_outputs = 1
     else:
         n_outputs = env.action_space.n
+
     model.add(layers.Dense(n_outputs, activation='softmax'))
     model.summary()
+    print('Loss function: ', loss_functions[env_name])
     model.compile(loss=loss_functions[env_name], optimizer='sgd',
                   metrics=['accuracy'])
 
     num_ep = int(num_tr/tr_per_ep)
     loss_training = []
     acc_training = []
-#    rew_training = []
+    perf_training = []
     for ind_ep in range(num_ep):
-        if verbose:
-            print('epoch {0} out of {1}'.format(ind_ep, num_ep))
+        start_time = time.time()
         # train
-        samples, target = get_dataset_for_SL(env_name=env_name, dt=dt,
-                                             n_tr=tr_per_ep)
+        samples, target, _ = get_dataset_for_SL(env_name=env_name,
+                                                n_tr=tr_per_ep)
         samples = np.expand_dims(samples, 2)
         model.fit(samples, target, batch_size=b_size, epochs=1, verbose=0)
         # test
-        samples, target = get_dataset_for_SL(env_name=env_name, dt=dt,
-                                             n_tr=tr_per_ep)
+        samples, target, env = get_dataset_for_SL(env_name=env_name,
+                                                  n_tr=tr_per_ep, seed=ind_ep)
         samples = np.expand_dims(samples, 2)
-        loss, acc = model.evaluate(samples, target)
+        loss, acc = model.evaluate(samples, target, verbose=0)
         loss_training.append(loss)
         acc_training.append(acc)
-        if acc > 0.96:
-            break
-        # evaluate in task
-        # eval_net_in_task()
-    data = {'acc': acc_training, 'loss': loss_training}
+        perf = eval_net_in_task(model, env_name=env_name,
+                                tr_per_ep=tr_per_ep, samples=samples)
+        perf_training.append(perf)
+        if verbose and ind_ep % 100 == 0:
+            print('Accuracy: ', acc)
+            print('Performance: ', perf)
+            rem_time = (num_ep-ind_ep)*(time.time()-start_time)/3600
+            print('epoch {0} out of {1}'.format(ind_ep, num_ep))
+            print('remaining time: {:.2f}'.format(rem_time))
+            print('-------------')
+
+    data = {'acc': acc_training, 'loss': loss_training,
+            'perf': perf_training}
     np.savez(folder + 'training.npz', **data)
     fig = plt.figure()
-    plt.subplot(1, 2, 1)
+    plt.subplot(1, 3, 1)
     plt.plot(acc_training)
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 3, 2)
     plt.plot(loss_training)
+    plt.subplot(1, 3, 3)
+    plt.plot(perf_training)
+
     fig.savefig(folder + 'performance.png')
     plt.close(fig)
-    eval_net_in_task(model, env_name, dt, tr_per_ep)
     return model
 
 
-def eval_net_in_task(model, env_name, dt, tr_per_ep):
-    kwargs = {'dt': dt, 'timing': {'decision': ('constant', 100)}}
-    env = gym.make(env_name, **kwargs)
+def eval_net_in_task(model, env_name, tr_per_ep, sl=True, samples=None, seed=0,
+                     show_fig=False):
+    if samples is None:
+        samples, target, env = get_dataset_for_SL(env_name=env_name,
+                                                  n_tr=tr_per_ep, seed=seed)
+        start = 0
+        ntr = 100
+        plt.figure()
+        plt.subplot(2, 1, 1)
+        plt.imshow(samples[start:start+ntr].T, aspect='auto')
+        plt.subplot(2, 1, 2)
+        plt.plot(target[start:start+ntr])
+        plt.xlim([-0.5, ntr-0.5])
+        plt.tight_layout()
+
+        samples = np.expand_dims(samples, 2)
+    if sl:
+        actions = model.predict(samples)
+    env = gym.make(env_name, **KWARGS)
+    env.seed(seed=seed)
     obs = env.reset()
+    perf = []
+    actions_plt = []
     rew_temp = []
     observations = []
     rewards = []
-    actions = []
     gt = []
+    target_mat = []
     action = 0
-    for ind_act in range(tr_per_ep):
-        obs, rew, _, info = env.step(action)
-        obs = np.expand_dims(obs, 0)
-        obs = np.expand_dims(obs, 2)
-        action = model.predict(obs)
-        action = np.argmax(action)
-        rew_temp.append(rew)
-        observations.append(obs[0, :, 0])
-        rewards.append(rew)
-        actions.append(action)
-        gt.append(info['gt'])
 
-    n_stps_plt = tr_per_ep
-    observations = np.array(observations)
-    plt.figure()
-    plt.subplot(3, 1, 1)
-    plt.imshow(observations[:n_stps_plt, :].T, aspect='auto')
-    plt.title('observations')
-    plt.subplot(3, 1, 2)
-    plt.plot(actions[:n_stps_plt], marker='+')
-    gt = np.array(gt)
-    if len(gt.shape) == 2:
-        gt = np.argmax(gt, axis=1)
-    plt.plot(gt[:n_stps_plt], 'r')
-    plt.title('actions')
-    plt.xlim([-0.5, n_stps_plt+0.5])
-    plt.subplot(3, 1, 3)
-    plt.plot(rewards[:n_stps_plt], 'r')
-    plt.title('reward')
-    plt.xlim([-0.5, n_stps_plt+0.5])
-    plt.tight_layout()
-    plt.show()
+    for ind_act in range(tr_per_ep):
+        observations.append(obs)
+        if sl:
+            action = actions[ind_act+1, :]
+            action = np.argmax(action)
+        else:
+            action, _ = model.predict([obs])
+        obs, rew, _, info = env.step(action)
+        if info['new_trial']:
+            perf.append(rew)
+        if show_fig:
+            rew_temp.append(rew)
+            rewards.append(rew)
+            gt.append(info['gt'])
+            target_mat.append(target[ind_act+1])
+            actions_plt.append(action)
+
+    if show_fig:
+        n_stps_plt = tr_per_ep
+        observations = np.array(observations)
+        plt.figure()
+        plt.subplot(3, 1, 1)
+        plt.imshow(observations[:n_stps_plt, :].T, aspect='auto')
+        plt.title('observations')
+        plt.subplot(3, 1, 2)
+        print(actions_plt[0])
+        plt.plot(np.arange(n_stps_plt)+1, actions_plt[:n_stps_plt], marker='+')
+        gt = np.array(gt)
+        if len(gt.shape) == 2:
+            gt = np.argmax(gt, axis=1)
+        plt.plot(np.arange(n_stps_plt)+1, gt[:n_stps_plt], 'r')
+        plt.plot(np.arange(n_stps_plt)+1, target_mat[:n_stps_plt], '--y')
+        plt.title('actions')
+        plt.xlim([-0.5, n_stps_plt+0.5])
+        plt.subplot(3, 1, 3)
+        plt.plot(np.arange(n_stps_plt)+1, rewards[:n_stps_plt], 'r')
+        plt.title('reward')
+        plt.xlim([-0.5, n_stps_plt+0.5])
+        plt.title(str(np.mean(perf)))
+        plt.tight_layout()
+        plt.show()
+    return np.mean(perf)
 
 
 if __name__ == '__main__':
-    eval_net_in_task(model, 'RDM-v0', dt=100, tr_per_ep=1000)
-#    model = train_env_keras_net('RDM-v0', '/home/molano/ngym_usage/results/tests/',
-#                                num_h=256, b_size=128,
-#                                num_tr=200000, tr_per_ep=1000, dt=100, verbose=1)
-#    run_original_envs(main_folder='/home/molano/ngym_usage/results/')
+    sl = False
+    main_folder = '/home/molano/ngym_usage/results/'
+    env_name = 'RDM-v0'
+    KWARGS = {'dt': 100, 'stimEv': 1000,
+              'timing': {'stimulus': ('constant', 100),
+                         'decision': ('constant', 100)}}
+    if sl:
+        # Supervised Learning
+        model = train_env_keras_net(env_name, main_folder + '/tests_short/',
+                                    num_h=256, b_size=128, num_tr=5000000,
+                                    tr_per_ep=200, verbose=1)
+        eval_net_in_task(model, 'RDM-v0', tr_per_ep=100, show_fig=True)
+    else:
+        # RL
+        env = gym.make(env_name, **KWARGS)
+        obs = env.reset()
+        # model = run_env(A2C, env, n_stps_tr=200000, verbose=0)
+        eval_net_in_task(model, 'RDM-v0', tr_per_ep=100, show_fig=True, sl=sl)
