@@ -7,7 +7,8 @@ Created on Wed Dec 18 15:05:09 2019
 """
 import time
 import tensorflow as tf
-from tensorflow.keras import layers
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, LSTM, TimeDistributed, Input
 import matplotlib
 import sys
 import os
@@ -374,7 +375,14 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
     target = target[:count_stps, :]
     samples = samples.reshape((-1, ROLLOUT, obs_sh))
     target = target.reshape((-1, ROLLOUT, act_sh))
-    
+#    print(samples.shape)
+#    print(target.shape)
+#    plt.figure()
+#    plt.subplot(2, 1, 1)
+#    plt.imshow(samples[0, :, :].T, aspect='auto')
+#    plt.subplot(2, 1, 2)
+#    plt.imshow(target[0, :, :].T, aspect='auto')
+#    asd
     return samples, target, env
 
 
@@ -382,21 +390,13 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
                         num_tr=200000, tr_per_ep=1000, verbose=1):
     env = test_env(env_name, num_steps=1)
     # from https://www.tensorflow.org/guide/keras/rnn
-    model = tf.keras.Sequential()
-    model.add(layers.Dense(num_h, input_shape=(ROLLOUT, env.obs.shape[1]),
-                           activation='relu'))
-    # Add a LSTM layer
-    model.add(layers.LSTM(num_h, activation='relu', return_sequences=True))
-    # Add a Dense layer
-    if loss_functions[env_name] == 'mean_squared_error':
-        n_outputs = 1
-    else:
-        n_outputs = env.action_space.n
-
-    model.add(layers.Dense(n_outputs, activation='softmax'))
+    xin = Input(batch_shape=(None, ROLLOUT, env.observation_space.shape[0]),
+                dtype='float32')
+    seq = LSTM(num_h, return_sequences=True)(xin)
+    mlp = TimeDistributed(Dense(env.action_space.n, activation='softmax'))(seq)
+    model = Model(inputs=xin, outputs=mlp)
     model.summary()
-    print('Loss function: ', loss_functions[env_name])
-    model.compile(loss=loss_functions[env_name], optimizer='sgd',
+    model.compile(optimizer='Adam', loss='categorical_crossentropy',
                   metrics=['accuracy'])
     num_ep = int(num_tr/tr_per_ep)
     loss_training = []
@@ -407,24 +407,21 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
         # train
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
                                                 n_tr=tr_per_ep)
-        #        print(tr_per_ep)
-        #        print(samples.shape)
-        #        print(target.shape)
-#        samples = np.expand_dims(samples, 2)
-        model.fit(samples, target, batch_size=b_size, epochs=1, verbose=0)
+        model.fit(samples, target, epochs=1, verbose=0)
         # test
         samples, target, env = get_dataset_for_SL(env_name=env_name,
                                                   n_tr=tr_per_ep, seed=ind_ep)
-#        samples = np.expand_dims(samples, 2)
         loss, acc = model.evaluate(samples, target, verbose=0)
         loss_training.append(loss)
         acc_training.append(acc)
-#        perf = eval_net_in_task(model, env_name=env_name,
-#                                tr_per_ep=tr_per_ep, samples=samples)
-#        perf_training.append(perf)
-        if verbose and ind_ep % 5 == 0:
+        perf = eval_net_in_task(model, env_name=env_name,
+                                tr_per_ep=tr_per_ep, samples=samples,
+                                target=target, folder=folder,
+                                show_fig=(ind_ep % 100) == 0, seed=ind_ep)
+        perf_training.append(perf)
+        if verbose and ind_ep % 100 == 0:
             print('Accuracy: ', acc)
-#            print('Performance: ', perf)
+            print('Performance: ', perf)
             rem_time = (num_ep-ind_ep)*(time.time()-start_time)/3600
             print('epoch {0} out of {1}'.format(ind_ep, num_ep))
             print('remaining time: {:.2f}'.format(rem_time))
@@ -446,20 +443,18 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
     return model
 
 
-def eval_net_in_task(model, env_name, tr_per_ep, sl=True, samples=None, seed=0,
-                     show_fig=False):
+def eval_net_in_task(model, env_name, tr_per_ep, sl=True, samples=None,
+                     target=None, seed=0, show_fig=False, folder=''):
     if samples is None:
-        samples, target, env = get_dataset_for_SL(env_name=env_name,
-                                                  n_tr=tr_per_ep, seed=seed)
-        start = 0
-        ntr = 100
-        plt.figure()
-        plt.subplot(2, 1, 1)
-        plt.imshow(samples[start:start+ntr].T, aspect='auto')
-        plt.subplot(2, 1, 2)
-        plt.plot(target[start:start+ntr])
-        plt.xlim([-0.5, ntr-0.5])
-        plt.tight_layout()
+        samples, target, _ = get_dataset_for_SL(env_name=env_name,
+                                                n_tr=tr_per_ep, seed=seed)
+        if show_fig:
+            plt.figure()
+            plt.subplot(2, 1, 1)
+            plt.imshow(samples[0, :, :].T, aspect='auto')
+            plt.subplot(2, 1, 2)
+            plt.imshow(target[0, :]. T, aspect='auto')
+            plt.tight_layout()
 
     if sl:
         actions = model.predict(samples)
@@ -476,9 +471,11 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl=True, samples=None, seed=0,
     action = 0
 
     for ind_act in range(tr_per_ep):
+        index = ind_act + 1
         observations.append(obs)
         if sl:
-            action = actions[ind_act+1, :]
+            action = actions[int(np.floor(index/ROLLOUT)),
+                             (index % ROLLOUT), :]
             action = np.argmax(action)
         else:
             action, _ = model.predict([obs])
@@ -489,24 +486,24 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl=True, samples=None, seed=0,
             rew_temp.append(rew)
             rewards.append(rew)
             gt.append(info['gt'])
-            target_mat.append(target[ind_act+1])
+            target_mat.append(target[int(np.floor(index/ROLLOUT)),
+                                     index % ROLLOUT])
             actions_plt.append(action)
 
     if show_fig:
-        n_stps_plt = tr_per_ep
+        n_stps_plt = 100
         observations = np.array(observations)
-        plt.figure()
+        f = plt.figure()
         plt.subplot(3, 1, 1)
         plt.imshow(observations[:n_stps_plt, :].T, aspect='auto')
         plt.title('observations')
         plt.subplot(3, 1, 2)
-        print(actions_plt[0])
         plt.plot(np.arange(n_stps_plt)+1, actions_plt[:n_stps_plt], marker='+')
         gt = np.array(gt)
         if len(gt.shape) == 2:
             gt = np.argmax(gt, axis=1)
         plt.plot(np.arange(n_stps_plt)+1, gt[:n_stps_plt], 'r')
-        plt.plot(np.arange(n_stps_plt)+1, target_mat[:n_stps_plt], '--y')
+        # plt.plot(np.arange(n_stps_plt)+1, target_mat[:n_stps_plt], '--y')
         plt.title('actions')
         plt.xlim([-0.5, n_stps_plt+0.5])
         plt.subplot(3, 1, 3)
@@ -516,6 +513,10 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl=True, samples=None, seed=0,
         plt.title(str(np.mean(perf)))
         plt.tight_layout()
         plt.show()
+        if folder != '':
+            f.savefig(folder + 'task_struct.png')
+            plt.close(f)
+
     return np.mean(perf)
 
 
@@ -523,14 +524,13 @@ if __name__ == '__main__':
     sl = True
     main_folder = '/home/molano/ngym_usage/results/'
     env_name = 'RDM-v0'
-    ROLLOUT = 100
-    KWARGS = {'dt': 100, 'stimEv': 1000,
-              'timing': {'stimulus': ('constant', 200),
-                         'decision': ('constant', 100)}}
+    ROLLOUT = 20
+    KWARGS = {'dt': 100,
+              'timing': {'decision': ('constant', 100)}}
     if sl:
         # Supervised Learning
         model = train_env_keras_net(env_name, main_folder + '/tests_short/',
-                                    num_h=256, b_size=128, num_tr=5000000,
+                                    num_h=256, b_size=128, num_tr=500000,
                                     tr_per_ep=1000, verbose=1)
         eval_net_in_task(model, 'RDM-v0', tr_per_ep=100, show_fig=True)
     else:
