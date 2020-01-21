@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 from neurogym.wrappers import trial_hist_nalt as thn
 from neurogym.wrappers import cv_learning as cv_l
 from neurogym.wrappers import manage_data as md
-from priors.codes.ops import utils as ut
+# from priors.codes.ops import utils as ut
 matplotlib.use('Qt5Agg')
 plt.close('all')
 loss_functions = {'AntiReach-v0': 'mean_squared_error',
@@ -41,13 +41,17 @@ loss_functions = {'AntiReach-v0': 'mean_squared_error',
                   'MemoryRecall-v0': 'sparse_categorical_crossentropy',
                   'MotorTiming-v0': 'mean_squared_error',
                   'NAltRDM-v0': 'sparse_categorical_crossentropy',
-                  'RDM-v0': 'sparse_categorical_crossentropy',
+                  'RDM-v0': 'categorical_crossentropy',
                   'Reaching1D-v0': 'mean_squared_error',
                   'Reaching1DWithSelfDistraction-v0': 'mean_squared_error',
                   'ReadySetGo-v0': 'no-SL',
                   'Romo-v0': 'sparse_categorical_crossentropy',
                   'padoaSch-v0': 'sparse_categorical_crossentropy',
                   'pdWager-v0': 'sparse_categorical_crossentropy'}
+ROLLOUT = 100
+KWARGS = {'dt': 100, 'stimEv': 1000,
+          'timing': {'stimulus': ('constant', 200),
+                     'decision': ('constant', 100)}}
 
 
 def test_env(env, num_steps=100):
@@ -342,6 +346,7 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
                        nstps_test=1000, verbose=0, seed=None):
     env = test_env(env_name, num_steps=nstps_test)
     obs_sh = env.observation_space.shape[0]
+    act_sh = env.action_space.n
     num_steps = int(nstps_test*n_tr/(env.num_tr))
     num_steps_per_trial = int(nstps_test/env.num_tr)
     env = gym.make(env_name, **KWARGS)
@@ -349,7 +354,7 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
     env.reset()
     # TODO: this assumes 1-D observations
     samples = np.empty((num_steps, obs_sh))
-    target = np.empty((num_steps,))
+    target = np.empty((num_steps, act_sh))
     if verbose:
         print('Task: ', env_name)
         print('Producing dataset with {0} steps'.format(num_steps) +
@@ -360,72 +365,17 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
         obs = env.obs
         gt = env.gt
         samples[count_stps:count_stps+obs.shape[0], :] = obs
-        target[count_stps:count_stps+gt.shape[0]] = gt
+        target[count_stps:count_stps+gt.shape[0], :] = np.eye(act_sh)[gt]
         count_stps += obs.shape[0]
         assert obs.shape[0] == gt.shape[0]
         env.new_trial()
 
     samples = samples[:count_stps, :]
-    target = target[:count_stps]
+    target = target[:count_stps, :]
     samples = samples.reshape((-1, ROLLOUT, obs_sh))
-    target = target.reshape((-1, ROLLOUT))
-    #    start = 0
-    #    ntr = 100
-    #    plt.figure()
-    #    plt.subplot(2, 1, 1)
-    #    plt.imshow(samples[39, start:start+ntr, :].T, aspect='auto')
-    #    plt.subplot(2, 1, 2)
-    #    plt.plot(target[39, start:start+ntr])
-    #    plt.xlim([-0.5, ntr-0.5])
-    #    asd
+    target = target.reshape((-1, ROLLOUT, act_sh))
+    
     return samples, target, env
-
-
-#def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
-#                       nstps_test=1000, verbose=0, seed=None):
-#    env = test_env(env_name, num_steps=nstps_test)
-#    num_steps = int(nstps_test*n_tr/(ROLLOUT*env.num_tr))
-#    num_steps_per_trial = int(nstps_test/env.num_tr)
-#    env = gym.make(env_name, **KWARGS)
-#    env.seed(seed)
-#    env.reset()
-#    # TODO: this assumes 1-D observations
-#    samples = np.empty((num_steps, ROLLOUT, env.observation_space.shape[0]))
-#    target = np.empty((num_steps, ROLLOUT))
-#    if verbose:
-#        print('Task: ', env_name)
-#        print('Producing dataset with {0} steps'.format(num_steps) +
-#              'and {0} trials'.format(n_tr) +
-#              '({0} steps per trial)'.format(num_steps_per_trial))
-#    count_stps = 0
-#    for tr in range(n_tr):
-#        obs = env.obs
-#        gt = env.gt
-#        trial_sh = obs.shape[0]
-#        ntr_in_rollout = tr%ROLLOUT
-#        samples[trial_sh*ntr_in_rollout:trial_sh*(ntr_in_rollout+1),
-#                ntr_in_rollout, :] = obs
-#        target[trial_sh*ntr_in_rollout:trial_sh*(ntr_in_rollout+1),
-#               ntr_in_rollout] = gt
-#        count_stps += trial_sh
-#        assert trial_sh == gt.shape[0]
-#        env.new_trial()
-#
-#    samples = samples[:count_stps, :]
-#    target = target[:count_stps]
-#    print(samples.shape)
-#    print(target.shape)
-#    asd
-#    #    start = 50
-#    #    ntr = 100
-#    #    plt.figure()
-#    #    plt.subplot(2, 1, 1)
-#    #    plt.imshow(samples[start:start+ntr, :].T, aspect='auto')
-#    #    plt.subplot(2, 1, 2)
-#    #    plt.plot(target[start:start+ntr])
-#    #    plt.xlim([-0.5, ntr-0.5])
-#    #    asd
-#    return samples, target, env
 
 
 def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
@@ -433,9 +383,10 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
     env = test_env(env_name, num_steps=1)
     # from https://www.tensorflow.org/guide/keras/rnn
     model = tf.keras.Sequential()
+    model.add(layers.Dense(num_h, input_shape=(ROLLOUT, env.obs.shape[1]),
+                           activation='relu'))
     # Add a LSTM layer
-    model.add(layers.LSTM(num_h, input_shape=(ROLLOUT, env.obs.shape[1]),
-                          activation='relu', return_sequences=True))
+    model.add(layers.LSTM(num_h, activation='relu', return_sequences=True))
     # Add a Dense layer
     if loss_functions[env_name] == 'mean_squared_error':
         n_outputs = 1
@@ -456,22 +407,24 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
         # train
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
                                                 n_tr=tr_per_ep)
-        print(tr_per_ep)
-        print(samples.shape)
-        print(target.shape)
+        #        print(tr_per_ep)
+        #        print(samples.shape)
+        #        print(target.shape)
+#        samples = np.expand_dims(samples, 2)
         model.fit(samples, target, batch_size=b_size, epochs=1, verbose=0)
         # test
         samples, target, env = get_dataset_for_SL(env_name=env_name,
                                                   n_tr=tr_per_ep, seed=ind_ep)
+#        samples = np.expand_dims(samples, 2)
         loss, acc = model.evaluate(samples, target, verbose=0)
         loss_training.append(loss)
         acc_training.append(acc)
-        perf = eval_net_in_task(model, env_name=env_name,
-                                tr_per_ep=tr_per_ep, samples=samples)
-        perf_training.append(perf)
-        if verbose and ind_ep % 100 == 0:
+#        perf = eval_net_in_task(model, env_name=env_name,
+#                                tr_per_ep=tr_per_ep, samples=samples)
+#        perf_training.append(perf)
+        if verbose and ind_ep % 5 == 0:
             print('Accuracy: ', acc)
-            print('Performance: ', perf)
+#            print('Performance: ', perf)
             rem_time = (num_ep-ind_ep)*(time.time()-start_time)/3600
             print('epoch {0} out of {1}'.format(ind_ep, num_ep))
             print('remaining time: {:.2f}'.format(rem_time))
