@@ -9,6 +9,8 @@ import numpy as np
 import time
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, LSTM, TimeDistributed, Input
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 sys.path.append(os.path.expanduser('~/gym'))
 sys.path.append(os.path.expanduser('~/stable-baselines'))
@@ -138,7 +140,6 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl='SL', samples=None,
     gt = []
     target_mat = []
     action = 0
-
     for ind_act in range(tr_per_ep):
         index = ind_act + 1
         observations.append(obs)
@@ -190,18 +191,19 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl='SL', samples=None,
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 5:
+    if len(sys.argv) != 6:
         raise ValueError('usage: bsls_run.py [model] [task]' +
-                         '[seed] [num_trials]')
+                         '[seed] [num_trials] [rollout]')
 
     # ARGS
     alg = sys.argv[1]  # a2c acer acktr or ppo2
     task = sys.argv[2]  # ngym task (neurogym.all_tasks.keys())
     seed = int(sys.argv[3])
     num_trials = int(sys.argv[4])
+    ROLLOUT = int(sys.argv[5])  # use 20 if short periods, else 100
+
     dt = 100
     n_cpu_tf = 1  # (ppo2 will crash)
-    ROLLOUT = 20  # use 20 if short periods, else 100
 
     states_list = 'fixation stim1 delay1 stim2 delay2 go1 go2 reach' +\
         ' delay_btw_stim delay_aft_stim decision sample first_delay test' +\
@@ -222,8 +224,9 @@ if __name__ == '__main__':
     ACT_SIZE = env.action_space.n
 
     savpath = os.path.expanduser(f'~/Jan2020/data/{alg}_{task}_{seed}.npz')
-    if not os.path.exists(savpath):
-        os.makedirs(savpath)
+    main_folder = savpath[:-4] + '/'
+    if not os.path.exists(main_folder):
+        os.makedirs(main_folder)
 
     if alg != 'SL':
         if alg == 'A2C':
@@ -236,17 +239,15 @@ if __name__ == '__main__':
             from stable_baselines import PPO2 as algo
 
         env = gym.make(task, **KWARGS)
-        env = trial_hist.TrialHistory(env)
         env.seed(seed=seed)
         env = DummyVecEnv([lambda: env])
         model = algo(LstmPolicy, env, verbose=1, seed=seed, n_steps=ROLLOUT,
                      n_cpu_tf_sess=n_cpu_tf, savpath=savpath)
         model.learn(total_timesteps=TOT_TIMESTEPS, seed=seed)
     else:
-        folder = savpath[:-4] + '/'
-        model = train_env_keras_net(task, folder,
-                                    num_h=256, b_size=128, num_tr=500000,
+        model = train_env_keras_net(task, main_folder, num_tr=num_trials,
+                                    num_h=256, b_size=128,
                                     tr_per_ep=1000, verbose=1)
 
     eval_net_in_task(model, task, tr_per_ep=1000, show_fig=True, sl=alg,
-                     folder=folder)
+                     folder=main_folder)

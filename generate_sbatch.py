@@ -4,17 +4,17 @@
 import os
 import sys
 sys.path.append(os.path.expanduser('~/neurogym'))
-
-import gym
 import neurogym as ngym
+dirtosave = '/home/molano/Jan2020/generated_scripts/'
+if not os.path.exists(dirtosave):
+    os.makedirs(dirtosave)
 
-dirtosave = '/home/hcli64/hcli64348/Jan2020/generated_scripts/'
 workdir = '/home/hcli64/hcli64348/'
 logdir = '/home/hcli64/hcli64348/Jan2020/logs/'
 
 commontxt = (
     '#SBATCH --cpus-per-task=4\n'
-    '#SBATCH --time=4:00:00\n' 
+    '#SBATCH --time=4:00:00\n'
     'module purge\n'
     'module load gcc/6.4.0\n'
     'module load cuda/9.1\n'
@@ -30,7 +30,7 @@ commontxt = (
 )
 
 
-def gen_file(modelname, task, instance):
+def gen_file(modelname, task, instance, num_tr, rollout):
     fullname = f'{modelname}_{task}_{instance}'
     with open(f'{dirtosave}{modelname}_{task}_{instance}.sh', 'a') as f:
         f.write('#!/bin/sh\n')
@@ -38,13 +38,15 @@ def gen_file(modelname, task, instance):
         f.write(f'#SBATCH --output={logdir}{fullname}.out\n')
         f.write(f'#SBATCH -D {workdir}\n')
         f.write(commontxt)
-        f.write(f'/home/hcli64/hcli64348/bsls_run.py {modelname} {task} {instance}')
+        f.write(f'/home/hcli64/hcli64348/bsls_run.py {modelname} {task} {instance} {num_tr} {rollout}')
 
 
 if __name__ == '__main__':
-    for model in ['A2C', 'ACER', 'ACKTR', 'PPO2']:
+    for model in ['A2C', 'ACER', 'ACKTR', 'PPO2', 'SL']:
         for tsk in ngym.all_tasks.keys():
-            for i in range(5):
-                gen_file(model, tsk, i)
+            for i in range(2):
+                for ntr in [100000]:
+                    for rll in [20]:
+                        gen_file(model, tsk, i, ntr, rll)
 
     print('done')
