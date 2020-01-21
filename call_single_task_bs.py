@@ -375,14 +375,6 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
     target = target[:count_stps, :]
     samples = samples.reshape((-1, ROLLOUT, obs_sh))
     target = target.reshape((-1, ROLLOUT, act_sh))
-#    print(samples.shape)
-#    print(target.shape)
-#    plt.figure()
-#    plt.subplot(2, 1, 1)
-#    plt.imshow(samples[0, :, :].T, aspect='auto')
-#    plt.subplot(2, 1, 2)
-#    plt.imshow(target[0, :, :].T, aspect='auto')
-#    asd
     return samples, target, env
 
 
