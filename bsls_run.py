@@ -72,7 +72,7 @@ def get_dataset_for_SL(env_name, kwargs, rollout, folder='', n_tr=1000000,
 def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
                         b_size=128, num_tr=200000, ntr_save=1000,
                         tr_per_ep=1000, verbose=1):
-    env = test_env(env_name, num_steps=1)
+    env = test_env(env_name, kwargs=kwargs, num_steps=1)
     # from https://www.tensorflow.org/guide/keras/rnn
     xin = Input(batch_shape=(None, rollout, env.observation_space.shape[0]),
                 dtype='float32')
@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # other relevant vars
     nstps_test = 1000
-    env = test_env(task, num_steps=nstps_test)
+    env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
     TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
     OBS_SIZE = env.observation_space.shape[0]
     ACT_SIZE = env.action_space.n
