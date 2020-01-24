@@ -263,7 +263,7 @@ if __name__ == '__main__':
                      policy_kwargs={'feature_extraction': "mlp"})
         model.learn(total_timesteps=TOT_TIMESTEPS, seed=seed)
     else:
-        model = train_env_keras_net(task, kwargs=kwargs, main_folder,
+        model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
                                     num_tr=num_trials, num_h=256, b_size=128,
                                     tr_per_ep=1000, verbose=1)
 
