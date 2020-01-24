@@ -17,14 +17,14 @@ sys.path.append(os.path.expanduser('~/stable-baselines'))
 sys.path.append(os.path.expanduser('~/neurogym'))
 import gym
 import neurogym  # need to import it so ngym envs are registered
-from neurogym.wrappers import trial_hist
+from neurogym.wrappers import manage_data
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 
 
-def test_env(env, num_steps=100):
+def test_env(env, kwargs, num_steps=100):
     """Test if all one environment can at least be run."""
-    env = gym.make(env, **KWARGS)
+    env = gym.make(env, **kwargs)
     env.reset()
     for stp in range(num_steps):
         action = env.action_space.sample()
@@ -34,10 +34,14 @@ def test_env(env, num_steps=100):
     return env
 
 
-def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
-                       nstps_test=1000, verbose=0, seed=None):
-    env = gym.make(env_name, **KWARGS)
+def get_dataset_for_SL(env_name, kwargs, rollout, folder='', n_tr=1000000,
+                       ntr_save=1000, nstps_test=1000, verbose=0,
+                       seed=None, save=False):
+    env = gym.make(env_name, **kwargs)
     env.seed(seed)
+    if save:
+        env = manage_data.ManageData(env, folder=folder,
+                                     num_tr_save=ntr_save)
     env.reset()
     # TODO: this assumes 1-D observations
     samples = np.empty((TOT_TIMESTEPS, OBS_SIZE))
@@ -60,16 +64,17 @@ def get_dataset_for_SL(env_name='RDM-v0', n_tr=1000000,
 
     samples = samples[:count_stps, :]
     target = target[:count_stps, :]
-    samples = samples.reshape((-1, ROLLOUT, OBS_SIZE))
-    target = target.reshape((-1, ROLLOUT, ACT_SIZE))
+    samples = samples.reshape((-1, rollout, OBS_SIZE))
+    target = target.reshape((-1, rollout, ACT_SIZE))
     return samples, target, env
 
 
-def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
-                        num_tr=200000, tr_per_ep=1000, verbose=1):
+def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
+                        b_size=128, num_tr=200000, ntr_save=1000,
+                        tr_per_ep=1000, verbose=1):
     env = test_env(env_name, num_steps=1)
     # from https://www.tensorflow.org/guide/keras/rnn
-    xin = Input(batch_shape=(None, ROLLOUT, env.observation_space.shape[0]),
+    xin = Input(batch_shape=(None, rollout, env.observation_space.shape[0]),
                 dtype='float32')
     seq = LSTM(num_h, return_sequences=True)(xin)
     mlp = TimeDistributed(Dense(env.action_space.n, activation='softmax'))(seq)
@@ -85,17 +90,24 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
         start_time = time.time()
         # train
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
-                                                n_tr=tr_per_ep)
+                                                kwargs=kwargs,
+                                                rollout=rollout,
+                                                n_tr=tr_per_ep,
+                                                folder=folder,
+                                                ntr_save=ntr_save,
+                                                save=True)
         model.fit(samples, target, epochs=1, verbose=0)
         # test
         samples, target, env = get_dataset_for_SL(env_name=env_name,
+                                                  kwargs=kwargs,
+                                                  rollout=rollout,
                                                   n_tr=tr_per_ep, seed=ind_ep)
         loss, acc = model.evaluate(samples, target, verbose=0)
         loss_training.append(loss)
         acc_training.append(acc)
-        perf = eval_net_in_task(model, env_name=env_name,
-                                tr_per_ep=tr_per_ep, samples=samples,
-                                target=target, folder=folder,
+        perf = eval_net_in_task(model, env_name=env_name, kwargs=kwargs,
+                                tr_per_ep=tr_per_ep, rollout=rollout,
+                                samples=samples, target=target, folder=folder,
                                 show_fig=False, seed=ind_ep)
         perf_training.append(perf)
         if verbose and ind_ep % 100 == 0:
@@ -122,14 +134,17 @@ def train_env_keras_net(env_name, folder, num_h=256, b_size=128,
     return model
 
 
-def eval_net_in_task(model, env_name, tr_per_ep, sl='SL', samples=None,
-                     target=None, seed=0, show_fig=False, folder=''):
+def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
+                     samples=None, target=None, seed=0, show_fig=False,
+                     folder=''):
     if samples is None:
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
+                                                kwargs=kwargs,
+                                                rollout=rollout,
                                                 n_tr=tr_per_ep, seed=seed)
     if sl == 'SL':
         actions = model.predict(samples)
-    env = gym.make(env_name, **KWARGS)
+    env = gym.make(env_name, **kwargs)
     env.seed(seed=seed)
     obs = env.reset()
     perf = []
@@ -144,8 +159,8 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl='SL', samples=None,
         index = ind_act + 1
         observations.append(obs)
         if sl == 'SL':
-            action = actions[int(np.floor(index/ROLLOUT)),
-                             (index % ROLLOUT), :]
+            action = actions[int(np.floor(index/rollout)),
+                             (index % rollout), :]
             action = np.argmax(action)
         else:
             action, _ = model.predict([obs])
@@ -156,8 +171,8 @@ def eval_net_in_task(model, env_name, tr_per_ep, sl='SL', samples=None,
             rew_temp.append(rew)
             rewards.append(rew)
             gt.append(info['gt'])
-            target_mat.append(target[int(np.floor(index/ROLLOUT)),
-                                     index % ROLLOUT])
+            target_mat.append(target[int(np.floor(index/rollout)),
+                                     index % rollout])
             actions_plt.append(action)
 
     if show_fig:
@@ -200,8 +215,8 @@ if __name__ == '__main__':
     task = sys.argv[2]  # ngym task (neurogym.all_tasks.keys())
     seed = int(sys.argv[3])
     num_trials = int(sys.argv[4])
-    ROLLOUT = int(sys.argv[5])  # use 20 if short periods, else 100
-
+    rollout = int(sys.argv[5])  # use 20 if short periods, else 100
+    ntr_save = 1000
     dt = 100
     n_cpu_tf = 1  # (ppo2 will crash)
 
@@ -211,7 +226,7 @@ if __name__ == '__main__':
         ' target cue set ready measure f1 f2 offer_on pre_sure'
 
     states_list = states_list.split(' ')
-    KWARGS = {'dt': dt,
+    kwargs = {'dt': dt,
               'timing': dict(zip(states_list,
                                  zip(['constant']*len(states_list),
                                      [100]*len(states_list))))}
@@ -238,16 +253,19 @@ if __name__ == '__main__':
         elif alg == 'PPO2':
             from stable_baselines import PPO2 as algo
 
-        env = gym.make(task, **KWARGS)
+        env = gym.make(task, **kwargs)
         env.seed(seed=seed)
+        env = manage_data.ManageData(env, folder=main_folder,
+                                     num_tr_save=ntr_save)
         env = DummyVecEnv([lambda: env])
-        model = algo(LstmPolicy, env, verbose=1, seed=seed, n_steps=ROLLOUT,
+        model = algo(LstmPolicy, env, verbose=1, seed=seed, n_steps=rollout,
                      n_cpu_tf_sess=n_cpu_tf, savpath=savpath)
         model.learn(total_timesteps=TOT_TIMESTEPS, seed=seed)
     else:
-        model = train_env_keras_net(task, main_folder, num_tr=num_trials,
-                                    num_h=256, b_size=128,
+        model = train_env_keras_net(task, kwargs=kwargs, main_folder,
+                                    num_tr=num_trials, num_h=256, b_size=128,
                                     tr_per_ep=1000, verbose=1)
 
-    eval_net_in_task(model, task, tr_per_ep=1000, show_fig=True, sl=alg,
+    eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
+                     rollout=rollout, ntr_save=ntr_save, show_fig=True, sl=alg,
                      folder=main_folder)
