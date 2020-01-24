@@ -268,5 +268,5 @@ if __name__ == '__main__':
                                     tr_per_ep=1000, verbose=1)
 
     eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
-                     rollout=rollout, ntr_save=ntr_save, show_fig=True, sl=alg,
+                     rollout=rollout, show_fig=True, sl=alg,
                      folder=main_folder)
