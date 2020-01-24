@@ -261,7 +261,7 @@ if __name__ == '__main__':
         model = algo(LstmPolicy, env, verbose=1, n_steps=rollout,
                      n_cpu_tf_sess=n_cpu_tf,
                      policy_kwargs={'feature_extraction': "mlp"})
-        model.learn(total_timesteps=TOT_TIMESTEPS, seed=seed)
+        model.learn(total_timesteps=TOT_TIMESTEPS)
     else:
         model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
                                     num_tr=num_trials, num_h=256, b_size=128,
