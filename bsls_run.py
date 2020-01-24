@@ -264,7 +264,8 @@ if __name__ == '__main__':
         model.learn(total_timesteps=TOT_TIMESTEPS)
     else:
         model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
-                                    num_tr=num_trials, num_h=256, b_size=128,
+                                    rollout=rollout, num_tr=num_trials,
+                                    num_h=256, b_size=128,
                                     tr_per_ep=1000, verbose=1)
 
     eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
