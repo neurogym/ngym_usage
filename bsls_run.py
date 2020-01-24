@@ -258,7 +258,7 @@ if __name__ == '__main__':
         env = manage_data.ManageData(env, folder=main_folder,
                                      num_tr_save=ntr_save)
         env = DummyVecEnv([lambda: env])
-        model = algo(LstmPolicy, env, verbose=1, seed=seed, n_steps=rollout,
+        model = algo(LstmPolicy, env, verbose=1, n_steps=rollout,
                      n_cpu_tf_sess=n_cpu_tf,
                      policy_kwargs={'feature_extraction': "mlp"})
         model.learn(total_timesteps=TOT_TIMESTEPS, seed=seed)
