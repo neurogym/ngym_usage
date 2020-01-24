@@ -34,14 +34,11 @@ def test_env(env, kwargs, num_steps=100):
     return env
 
 
-def get_dataset_for_SL(env_name, kwargs, rollout, folder='', n_tr=1000000,
-                       ntr_save=1000, nstps_test=1000, verbose=0,
-                       seed=None, save=False):
+def get_dataset_for_SL(env_name, kwargs, rollout, n_tr=1000000,
+                       nstps_test=1000, verbose=0,
+                       seed=None):
     env = gym.make(env_name, **kwargs)
     env.seed(seed)
-    if save:
-        env = manage_data.ManageData(env, folder=folder,
-                                     num_tr_save=ntr_save)
     env.reset()
     # TODO: this assumes 1-D observations
     samples = np.empty((TOT_TIMESTEPS, OBS_SIZE))
@@ -92,10 +89,7 @@ def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
                                                 kwargs=kwargs,
                                                 rollout=rollout,
-                                                n_tr=tr_per_ep,
-                                                folder=folder,
-                                                ntr_save=ntr_save,
-                                                save=True)
+                                                n_tr=tr_per_ep)
         model.fit(samples, target, epochs=1, verbose=0)
         # test
         samples, target, env = get_dataset_for_SL(env_name=env_name,
@@ -106,9 +100,10 @@ def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
         loss_training.append(loss)
         acc_training.append(acc)
         perf = eval_net_in_task(model, env_name=env_name, kwargs=kwargs,
-                                tr_per_ep=tr_per_ep, rollout=rollout,
+                                tr_per_ep=ntr_save, rollout=rollout,
                                 samples=samples, target=target, folder=folder,
-                                show_fig=False, seed=ind_ep)
+                                show_fig=False, seed=ind_ep,
+                                save=True, ntr_save=ntr_save)
         perf_training.append(perf)
         if verbose and ind_ep % 100 == 0:
             print('Accuracy: ', acc)
@@ -136,7 +131,7 @@ def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
 
 def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
                      samples=None, target=None, seed=0, show_fig=False,
-                     folder=''):
+                     folder='', save=False, ntr_save=1000):
     if samples is None:
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
                                                 kwargs=kwargs,
@@ -146,6 +141,9 @@ def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
         actions = model.predict(samples)
     env = gym.make(env_name, **kwargs)
     env.seed(seed=seed)
+    if save:
+        env = manage_data.ManageData(env, folder=folder,
+                                     num_tr_save=ntr_save)
     obs = env.reset()
     perf = []
     actions_plt = []
@@ -155,7 +153,8 @@ def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
     gt = []
     target_mat = []
     action = 0
-    for ind_act in range(tr_per_ep):
+    num_steps = int(samples.shape[0]*samples.shape[1])
+    for ind_act in range(num_steps-1):
         index = ind_act + 1
         observations.append(obs)
         if sl == 'SL':
