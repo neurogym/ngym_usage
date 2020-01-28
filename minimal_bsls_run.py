@@ -20,7 +20,6 @@ env = gym.make('RDM-v0')
 # Optional: PPO2 requires a vectorized environment to run
 # the env is now wrapped automatically when passing it to the constructor
 env = DummyVecEnv([lambda: env])
-
 model = A2C(LstmPolicy, env, verbose=1,
             policy_kwargs={'feature_extraction': "mlp"})
 model.learn(total_timesteps=10000, log_interval=10000)
