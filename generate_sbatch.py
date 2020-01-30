@@ -14,7 +14,7 @@ logdir = '/home/hcli64/hcli64348/Jan2020/logs/'
 
 commontxt = (
     '#SBATCH --cpus-per-task=4\n'
-    '#SBATCH --time=4:00:00\n'
+    '#SBATCH --time=8:00:00\n'
     'module purge\n'
     'module load gcc/6.4.0\n'
     'module load cuda/9.1\n'

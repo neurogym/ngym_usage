@@ -22,7 +22,7 @@ KWARGS = {'dt': 100, 'timing': {'fixation': ('constant', 0),
 env = gym.make(task, **KWARGS)
 # Optional: PPO2 requires a vectorized environment to run
 # the env is now wrapped automatically when passing it to the constructor
-save_folder = '/home/molano/ngym_usage/results/cv_tests/'
+save_folder = '../trash/'
 env = monitor.Monitor(env, folder=save_folder, num_tr_save=500,
                       verbose=True, info_keywords=['curr_ph', 'first_rew'])
 env = DummyVecEnv([lambda: env])
