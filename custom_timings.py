@@ -151,5 +151,15 @@ all_tasks_bsc_timings = {
         'stimulus': ('constant', 200),
         'delay': ('choice', [100, 200, 300]),
         'decision': ('constant', 100)
-    }
+    },
+    'ChangingEnvironment-v0':{
+        'fixation': ('constant', 200),
+        'stimulus': ('choice', [100, 200, 300]),
+        'decision': ('constant', 100)
+    },
+    'ReachingDelayResponse-v0': {
+        'stimulus': ('constant', 100),
+        'delay': ('choice', [0, 100, 200]),
+        'decision': ('constant', 100)
+    },
 }

@@ -18,6 +18,7 @@ sys.path.append(os.path.expanduser('~/stable-baselines'))
 sys.path.append(os.path.expanduser('~/neurogym'))
 import gym
 import neurogym  # need to import it so ngym envs are registered
+from neurogym.meta import info # so next line does not crash
 from neurogym.wrappers import monitor
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -58,6 +59,7 @@ def get_dataset_for_SL(env_name, kwargs, rollout, n_tr=1000000,
             gt = env.gt
             samples[count_stps:count_stps+obs.shape[0], :] = obs
             target[count_stps:count_stps+gt.shape[0], :] = to_categorical(gt, num_classes=ACT_SIZE)
+            # target[count_stps:count_stps+gt.shape[0], :] = np.eye(ACT_SIZE)[gt]
             count_stps += obs.shape[0]
             assert obs.shape[0] == gt.shape[0]
             env.new_trial()
@@ -157,6 +159,7 @@ def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
             raise ValueError(e)
         loss_training.append(loss)
         acc_training.append(acc)
+        curriter_folder= f'{folder}{ind_ep}/'
         perf = eval_net_in_task(model, env_name=env_name, kwargs=kwargs, # crash
                                 tr_per_ep=ntr_save, rollout=rollout, sl='SL',
                                 samples=samples, target=target, folder=folder,
@@ -197,7 +200,7 @@ def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
         samples, target, _ = get_dataset_for_SL(env_name=env_name,
                                                 kwargs=kwargs,
                                                 rollout=rollout,
-                                                n_tr=tr_per_ep, seed=seed)
+                                                n_tr=tr_per_ep, seed=seed) # crashes
     if sl == 'SL':
         actions = model.predict(samples)
     env = gym.make(env_name, **kwargs)
@@ -228,6 +231,8 @@ def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
             #action = np.argmax(action)
         else: # RL ~ which perhaps still does not work when using boxes
             action, _ = model.predict([obs])
+        if len(action.shape)>1: # packaged actions will lead to +1 dim and crash upon eval
+            action=action.flatten()
         obs, rew, _, info = env.step(action)
         if info['new_trial']:
             perf.append(rew)
@@ -324,6 +329,7 @@ if __name__ == '__main__':
         os.makedirs(main_folder)
 
     if alg != 'SL':
+        baselines_kw = {} # for non-common args among RL-algos
         if alg == 'A2C':
             from stable_baselines import A2C as algo 
         elif alg == 'ACER':
@@ -332,15 +338,16 @@ if __name__ == '__main__':
             from stable_baselines import ACKTR as algo
         elif alg == 'PPO2':
             from stable_baselines import PPO2 as algo
+            baselines_kw['nminibatches']=1
 
         env = gym.make(task, **kwargs)
         env.seed(seed=seed)
         env = monitor.Monitor(env, folder=main_folder,
                                      num_tr_save=ntr_save)
         env = DummyVecEnv([lambda: env])
-        model = algo(LstmPolicy, env, verbose=1, n_steps=rollout, # no verbose :D
+        model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
                      n_cpu_tf_sess=n_cpu_tf,
-                     policy_kwargs={'feature_extraction': "mlp"})
+                     policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
         model.learn(total_timesteps=TOT_TIMESTEPS)
     else:
         model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
@@ -351,3 +358,5 @@ if __name__ == '__main__':
     eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
                      rollout=rollout, show_fig=True, sl=alg,
                      folder=main_folder)
+
+    model.save(f'{main_folder}model')
