@@ -6,6 +6,7 @@ test training according to params (model, task, seed, trials, rollout)
 import os
 import sys
 import numpy as np
+import importlib
 import time
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, LSTM, TimeDistributed, Input
@@ -18,10 +19,12 @@ sys.path.append(os.path.expanduser('~/stable-baselines'))
 sys.path.append(os.path.expanduser('~/neurogym'))
 import gym
 import neurogym  # need to import it so ngym envs are registered
-from neurogym.meta import info # so next line does not crash
+# from neurogym.meta import info # so next line does not crash
 from neurogym.wrappers import monitor
+from neurogym.wrappers import ALL_WRAPPERS
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
+
 
 def test_env(env, kwargs, num_steps=100):
     """Test if all one environment can at least be run."""
@@ -104,6 +107,9 @@ def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
                         b_size=128, num_tr=200000, ntr_save=1000,
                         tr_per_ep=1000, verbose=1):
     env = test_env(env_name, kwargs=kwargs, num_steps=1)
+    for wrap in extra_wrap:
+        apply_wrapper(env, wrap_string)
+    #env = wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[extra_wrap])
     # from https://www.tensorflow.org/guide/keras/rnn
     xin = Input(batch_shape=(None, rollout, env.observation_space.shape[0]),
                 dtype='float32')
@@ -280,83 +286,182 @@ def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
 
     return np.mean(perf)
 
+def apply_wrapper(env, wrap_string):
+    wrap_str = ALL_WRAPPERS[wrap_string]
+    wrap_module = importlib.import_module(wrap_str.split(':')[0])
+    wrap_method = getattr(wrap_module, wrap_str.split(':')[1])
+    return wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[wrap_string])
+
 
 if __name__ == '__main__':
-    if len(sys.argv) != 6:
-        raise ValueError('usage: bsls_run.py [model] [task]' +
-                         '[seed] [num_trials] [rollout]')
+    godmode = False
+    if len(sys.argv)==2:
+        if sys.argv[1]=='idkfa':
+            godmode = True
+    elif len(sys.argv) < 6:
+        raise ValueError('usage: bsls_run.py [model] [task] ' +
+                         '[seed] [num_trials] [rollout] (wrapper1) (wrapper2) ...')
+    if godmode:
+        alg = 'SL'
+        #task = 'this will loop all tasks'
+        seed = 0
+        num_trials = 10000
+        rollout = 20
+        ntr_save = 1000
+        dt = 100
+        n_cpu_tf = 1
+    else:
+        # ARGS
+        alg = sys.argv[1]  # a2c acer acktr or ppo2
+        task = sys.argv[2]  # ngym task (neurogym.all_tasks.keys())
+        seed = int(sys.argv[3])
+        num_trials = int(sys.argv[4])
+        rollout = int(sys.argv[5])  # use 20 if short periods, else 100
+        if len(sys.argv)>6:
+            extra_wrap = sys.argv[6:]
+        else:
+            extra_wrap = []
+        ntr_save = 1000
+        dt = 100
+        n_cpu_tf = 1  # else ppo2 crashes
 
-    # ARGS
-    alg = sys.argv[1]  # a2c acer acktr or ppo2
-    task = sys.argv[2]  # ngym task (neurogym.all_tasks.keys())
-    seed = int(sys.argv[3])
-    num_trials = int(sys.argv[4])
-    rollout = int(sys.argv[5])  # use 20 if short periods, else 100
-    ntr_save = 1000
-    dt = 100
-    n_cpu_tf = 1  # (ppo2 will crash)
+    # states_list = 'fixation stim1 delay1 stim2 delay2 go1 go2 reach' +\
+    #     ' delay_btw_stim delay_aft_stim decision sample first_delay test' +\
+    #     ' second_delay delay test1 test2 delay3 test3 go_cue resp_delay' +\
+    #     ' target cue set ready measure f1 f2 offer_on pre_sure'
 
-    states_list = 'fixation stim1 delay1 stim2 delay2 go1 go2 reach' +\
-        ' delay_btw_stim delay_aft_stim decision sample first_delay test' +\
-        ' second_delay delay test1 test2 delay3 test3 go_cue resp_delay' +\
-        ' target cue set ready measure f1 f2 offer_on pre_sure'
-
-    states_list = states_list.split(' ')
+    # states_list = states_list.split(' ')
     
-    #kwargs = {'dt': dt,
-    #          'timing': dict(zip(states_list,
-    #                             zip(['constant']*len(states_list),
-    #                                 [100]*len(states_list))))}
+    # kwargs = {'dt': dt,
+    #           'timing': dict(zip(states_list,
+    #                              zip(['constant']*len(states_list),
+    #                                  [100]*len(states_list))))}
     
     # check hardcoded timings
-    from custom_timings import all_tasks_bsc_timings
-    kwargs = {'dt':dt, 'timing': all_tasks_bsc_timings[task]}
+    # from neurogym.custom_timings import ALL_ENVS_MINIMAL_TIMINGS #all_tasks_bsc_timings
+    from custom_timings import ALL_ENVS_MINIMAL_TIMINGS
+    from custom_wrappers import ALL_WRAPPERS_MINIMAL_RL
 
-    # other relevant vars
-    nstps_test = 1000
-    env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
-    TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
-    OBS_SIZE = env.observation_space.shape[0]
-    if isinstance(env.action_space, gym.spaces.discrete.Discrete):
-        ACT_SIZE = env.action_space.n
-    elif isinstance(env.action_space, gym.spaces.box.Box):
-        ACT_SIZE = env.action_space.shape[0] 
+    
+    # wrap_str = ALL_WRAPPERS[extra_wrap]
+    # wrap_module = importlib.import_module(wrap_str.split(':')[0])
+    # wrap_method = getattr(wrap_module, wrap_str.split(':')[1])
 
-    savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
-    #savpath = os.path.expanduser(f'~/Jan2020/data/{alg}_{task}_{seed}.npz')
-    main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
-    if not os.path.exists(main_folder):
-        os.makedirs(main_folder)
+    if not godmode:
+        kwargs = {'dt':dt, 'timing': ALL_ENVS_MINIMAL_TIMINGS[task]}
 
-    if alg != 'SL':
-        baselines_kw = {} # for non-common args among RL-algos
-        if alg == 'A2C':
-            from stable_baselines import A2C as algo 
-        elif alg == 'ACER':
-            from stable_baselines import ACER as algo
-        elif alg == 'ACKTR':
-            from stable_baselines import ACKTR as algo
-        elif alg == 'PPO2':
-            from stable_baselines import PPO2 as algo
-            baselines_kw['nminibatches']=1
+        # other relevant vars
+        nstps_test = 1000
+        env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
+        TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
+        OBS_SIZE = env.observation_space.shape[0]
+        if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+            ACT_SIZE = env.action_space.n
+        elif isinstance(env.action_space, gym.spaces.box.Box):
+            ACT_SIZE = env.action_space.shape[0] 
 
-        env = gym.make(task, **kwargs)
-        env.seed(seed=seed)
-        env = monitor.Monitor(env, folder=main_folder,
-                                     num_tr_save=ntr_save)
-        env = DummyVecEnv([lambda: env])
-        model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
-                     n_cpu_tf_sess=n_cpu_tf,
-                     policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
-        model.learn(total_timesteps=TOT_TIMESTEPS)
+        savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}_{extra_wrap}.npz')
+        #savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}.npz')
+        main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
+        if not os.path.exists(main_folder):
+            os.makedirs(main_folder)
+
+
+
+        if alg != 'SL':
+            baselines_kw = {} # for non-common args among RL-algos
+            if alg == 'A2C':
+                from stable_baselines import A2C as algo 
+            elif alg == 'ACER':
+                from stable_baselines import ACER as algo
+            elif alg == 'ACKTR':
+                from stable_baselines import ACKTR as algo
+            elif alg == 'PPO2':
+                from stable_baselines import PPO2 as algo
+                baselines_kw['nminibatches']=1
+
+            env = gym.make(task, **kwargs)
+            env.seed(seed=seed)
+            for wrap in extra_wrap:
+                env = apply_wrapper(env, wrap)
+                #env = wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[extra_wrap])
+            
+            
+            env = monitor.Monitor(env, folder=main_folder,
+                                        num_tr_save=ntr_save)
+            env = DummyVecEnv([lambda: env])
+            model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
+                        n_cpu_tf_sess=n_cpu_tf,
+                        policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
+            model.learn(total_timesteps=TOT_TIMESTEPS)
+        else:
+            model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
+                                        rollout=rollout, num_tr=num_trials,
+                                        num_h=256, b_size=128,
+                                        tr_per_ep=1000, verbose=1)
+
+        eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
+                        rollout=rollout, show_fig=True, sl=alg,
+                        folder=main_folder)
+
+        model.save(f'{main_folder}model')
+    
     else:
-        model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
-                                    rollout=rollout, num_tr=num_trials,
-                                    num_h=256, b_size=128,
-                                    tr_per_ep=1000, verbose=1)
+        for task in ALL_ENVS_MINIMAL_TIMINGS.keys():
+            try:
+                print(f'testing {task}')
+                kwargs = {'dt':dt, 'timing': ALL_ENVS_MINIMAL_TIMINGS[task]}
 
-    eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
-                     rollout=rollout, show_fig=True, sl=alg,
-                     folder=main_folder)
+                # other relevant vars
+                nstps_test = 1000
+                env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
+                TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
+                OBS_SIZE = env.observation_space.shape[0]
+                if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+                    ACT_SIZE = env.action_space.n
+                elif isinstance(env.action_space, gym.spaces.box.Box):
+                    ACT_SIZE = env.action_space.shape[0] 
 
-    model.save(f'{main_folder}model')
+                savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
+                #savpath = os.path.expanduser(f'~/Jan2020/data/{alg}_{task}_{seed}.npz')
+                main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
+                if not os.path.exists(main_folder):
+                    os.makedirs(main_folder)
+
+                if alg != 'SL':
+                    baselines_kw = {} # for non-common args among RL-algos
+                    if alg == 'A2C':
+                        from stable_baselines import A2C as algo 
+                    elif alg == 'ACER':
+                        from stable_baselines import ACER as algo
+                    elif alg == 'ACKTR':
+                        from stable_baselines import ACKTR as algo
+                    elif alg == 'PPO2':
+                        from stable_baselines import PPO2 as algo
+                        baselines_kw['nminibatches']=1
+
+                    env = gym.make(task, **kwargs)
+                    env.seed(seed=seed)
+                    env = monitor.Monitor(env, folder=main_folder,
+                                                num_tr_save=ntr_save)
+                    env = DummyVecEnv([lambda: env])
+                    model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
+                                n_cpu_tf_sess=n_cpu_tf,
+                                policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
+                    model.learn(total_timesteps=TOT_TIMESTEPS)
+                else:
+                    model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
+                                                rollout=rollout, num_tr=num_trials,
+                                                num_h=256, b_size=128,
+                                                tr_per_ep=1000, verbose=1)
+
+                eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
+                                rollout=rollout, show_fig=True, sl=alg,
+                                folder=main_folder)
+
+                model.save(f'{main_folder}model')
+            except Exception as e:
+                print(e)
+                os.system(f'echo {task} >> loop.log')
+                os.system(f'echo {e} >> loop.log')
+                continue
