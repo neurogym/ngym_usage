@@ -278,18 +278,23 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
     env.seed(seed=seed)
     env.reset()
     # first trial
-    obs = env.obs
+    obs, gt = env.obs, env.gt
     obs = obs[np.newaxis]
     action_pred = model.predict(obs)
     action_pred = np.argmax(action_pred, axis=-1)
     actions_mat = action_pred.T
+    gt_test = gt.reshape(-1, 1)
+    # perf = 0
     for ind_ep in range(num_trials-1):
         env.new_trial()
-        obs = env.obs
+        obs, gt = env.obs, env.gt
         obs = obs[np.newaxis]
         action_pred = model.predict(obs)
         action_pred = np.argmax(action_pred, axis=-1)
+        # perf += gt[-1] == action_pred[0, -1]
         actions_mat = np.concatenate((actions_mat, action_pred.T), axis=0)
+        gt_test = np.concatenate((gt_test, gt.reshape(-1, 1)), axis=0)
+    actions_mat = actions_mat[1:]
     # run environment step by step
     env = gym.make(env_name, **kwargs)
     env.seed(seed=seed)
@@ -312,6 +317,12 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
             rewards.append(rew)
             gt_mat.append(info['gt'])
             actions_plt.append(action)
+    #    print(np.mean(perf))
+    #    plt.figure()
+    #    plt.plot(gt_test[1:])
+    #    plt.plot(gt_mat)
+    #    plt.plot(actions_mat, '--')
+    #    asdasd
     if show_fig:
         observations = np.array(observations)
         plotting.fig_(obs=observations[:n_stps_plt],
@@ -322,8 +333,16 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
 
 
 if __name__ == '__main__':
+    plt.close('all')
     main_folder = '/home/molano/ngym_usage/results/SL_tests/'
     run_all_envs(main_folder=main_folder)
+
+    #    task = 'ContextDecisionMaking-v0'  # 'PerceptualDecisionMaking-v0'
+    #    task_params = ALL_ENVS_MINIMAL_TIMINGS[task]
+    #    task_params['dt'] = 100
+
+#    run_env(task, task_params, main_folder)
+
 #    task = 'DelayPairedAssociation-v0'
 #    task_params = {'timing': {'fixation': ('constant', 0),
 #                              'stim1': ('constant', 100),
