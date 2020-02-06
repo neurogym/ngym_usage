@@ -42,7 +42,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'offer_on': ('choice', [100, 200]),
                       'decision': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},  # ground truth not implemented
       'PostDecisionWager-v0':
           {'timing': {'fixation': ('constant', 100),
                       'stimulus': ('choice', [100, 200, 300]),
@@ -50,7 +50,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'pre_sure': ('choice', [100, 200]),
                       'decision': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},  # task to test confidence
       'DelayPairedAssociation-v0':
           {'timing': {'fixation': ('constant', 0),
                       'stim1': ('constant', 200),
@@ -73,7 +73,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'measure': ('choice', [100, 200]),
                       'set': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},
       'DelayedMatchSample-v0':
           {'timing': {'fixation': ('constant', 200),
                       'sample': ('constant', 200),
@@ -92,7 +92,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
       'DawTwoStep-v0':
           {'timing': {},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': False},  # observation depends on action
       'MatchingPenny-v0':
           {'timing': {},
            'loss': 'sparse_categorical_crossentropy',
@@ -102,7 +102,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'cue': ('choice', [100, 200, 300]),
                       'set': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},
       'Bandit-v0':
           {'timing': {},
            'loss': 'sparse_categorical_crossentropy',
@@ -124,17 +124,17 @@ ALL_ENVS_MINIMAL_TIMINGS =\
           {'timing': {'fixation': ('constant', 200),
                       'reach': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': False},  # actions have incremental effect
       'Reaching1DWithSelfDistraction-v0':
           {'timing': {'fixation': ('constant', 200),
                       'reach': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': False},  # actions have incremental effect
       'AntiReach-v0':
           {'timing': {'fixation': ('constant', 200),
                       'reach': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': False},  # actions have incremental effect
       'DelayedMatchToSampleDistractor1D-v0':
           {'timing': {'fixation': ('constant', 200),
                       'sample': ('constant', 200),
@@ -145,7 +145,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'delay3': ('constant', 200),
                       'test3': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},  # trials end when agent responds
       'IntervalDiscrimination-v0':
           {'timing': {'fixation': ('constant', 200),
                       'stim1': ('choice', [100, 200, 300]),
@@ -164,12 +164,12 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'go1': ('constant', 100),
                       'go2': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': False},  # actions have incremental effect
       'Detection-v0':
           {'timing': {'fixation': ('constant', 200),
                       'stimulus': ('constant', 200)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},  # trials end when agent responds
       'ReachingDelayResponse-v0':
           {'timing':
               {'stimulus': ('constant', 100),
@@ -183,16 +183,35 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'delay': ('choice', [100, 200, 300]),
                       'decision': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},  # block task
       'ChangingEnvironment-v0':
           {'timing': {'fixation': ('constant', 200),
                       'stimulus': ('choice', [100, 200, 300]),
                       'decision': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True}}
+           'SL': False}}  # block task
 
 assert len(list(set(ALL_ENVS)-set(ALL_ENVS_MINIMAL_TIMINGS))) == 0
 assert len(list(set(ALL_ENVS_MINIMAL_TIMINGS)-set(ALL_ENVS))) == 0
+
+
+def define_model(seq_len, num_h, obs_size, act_size, batch_size,
+                 stateful, loss):
+    """
+    https://fairyonice.github.io/Stateful-LSTM-model-training-in-Keras.html
+    """
+    inp = Input(batch_shape=(batch_size, seq_len, obs_size), name="input")
+
+    rnn = LSTM(num_h, return_sequences=True, stateful=stateful,
+               name="RNN")(inp)
+
+    dens = TimeDistributed(Dense(act_size, activation='softmax',
+                                 name="dense"))(rnn)
+    model = Model(inputs=[inp], outputs=[dens])
+
+    model.compile(loss=loss, optimizer="Adam",  metrics=['accuracy'])
+
+    return model
 
 
 def run_all_envs(main_folder):
@@ -236,8 +255,8 @@ def run_env(task, task_params, main_folder, **kwargs):
         os.mkdir(figs_folder)
 
     kwargs = {'dt': task_params['dt'], 'timing': task_params['timing']}
-    training_params = {'seq_len': 20, 'num_h': 256, 'steps_per_epoch': 5000,
-                       'batch_size': 16}
+    training_params = {'seq_len': 20, 'num_h': 256, 'steps_per_epoch': 500,
+                       'batch_size': 16, 'stateful': True}
     training_params.update(kwargs)
     # Make supervised dataset
     dataset = ngym.Dataset(task, env_kwargs=kwargs,
@@ -248,53 +267,54 @@ def run_env(task, task_params, main_folder, **kwargs):
     obs_size = env.observation_space.shape[0]
     act_size = env.action_space.n
 
-    # Model
-    # from https://www.tensorflow.org/guide/keras/rnn
-    xin = Input(batch_shape=(None, None, obs_size), dtype='float32')
-    seq = LSTM(training_params['num_h'], return_sequences=True)(xin)
-    mlp = TimeDistributed(Dense(act_size, activation='softmax'))(seq)
-    model = Model(inputs=xin, outputs=mlp)
-    # model.summary()
-    model.compile(optimizer='Adam', loss='sparse_categorical_crossentropy',
-                  metrics=['accuracy'])
-
+    model = define_model(seq_len=training_params['seq_len'],
+                         num_h=training_params['num_h'],
+                         obs_size=obs_size, act_size=act_size,
+                         batch_size=training_params['batch_size'],
+                         stateful=training_params['stateful'],
+                         loss=task_params['loss'])
     # Train network
     data_generator = (dataset()
                       for i in range(training_params['steps_per_epoch']))
     model.fit(data_generator, verbose=1,
               steps_per_epoch=training_params['steps_per_epoch'])
-    model.save(folder+task)
+    model.save_weights(folder+task)
     # evaluate
-    perf = eval_net_in_task(model, task, kwargs, dataset, show_fig=True,
+    model_test = define_model(seq_len=1, batch_size=1,
+                              obs_size=obs_size, act_size=act_size,
+                              stateful=training_params['stateful'],
+                              num_h=training_params['num_h'],
+                              loss=task_params['loss'])
+    model_test.load_weights(folder+task)
+    perf = eval_net_in_task(model_test, task, kwargs, dataset, show_fig=True,
                             folder=figs_folder)
     return perf
 
 
 def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
                      show_fig=False, folder='', seed=0, n_stps_plt=100):
-    if env_name == 'CVLearning-v0':
-        kwargs['init_ph'] = 4
-    env = gym.make(env_name, **kwargs)
-    env.seed(seed=seed)
-    env.reset()
-    # first trial
-    obs, gt = env.obs, env.gt
-    obs = obs[np.newaxis]
-    action_pred = model.predict(obs)
-    action_pred = np.argmax(action_pred, axis=-1)
-    actions_mat = action_pred.T
-    gt_test = gt.reshape(-1, 1)
-    # perf = 0
-    for ind_ep in range(num_trials-1):
-        env.new_trial()
-        obs, gt = env.obs, env.gt
-        obs = obs[np.newaxis]
-        action_pred = model.predict(obs)
-        action_pred = np.argmax(action_pred, axis=-1)
-        # perf += gt[-1] == action_pred[0, -1]
-        actions_mat = np.concatenate((actions_mat, action_pred.T), axis=0)
-        gt_test = np.concatenate((gt_test, gt.reshape(-1, 1)), axis=0)
-    actions_mat = actions_mat[1:]
+    #    env = gym.make(env_name, **kwargs)
+    #    env.seed(seed=seed)
+    #    env.reset()
+    #    # first trial
+    #    obs, gt = env.obs, env.gt
+    #    obs = obs[np.newaxis]
+    #    action_pred = model.predict(obs)
+    #    action_pred = np.argmax(action_pred, axis=-1)
+    #    actions_mat = action_pred.T
+    #    gt_test = gt.reshape(-1, 1)
+    #    # perf = 0
+    #    for ind_ep in range(num_trials-1):
+    #        env.new_trial()
+    #        obs, gt = env.obs, env.gt
+    #        obs = obs[np.newaxis]
+    #        print(obs.shape)
+    #        action_pred = model.predict(obs)
+    #        action_pred = np.argmax(action_pred, axis=-1)
+    #        # perf += gt[-1] == action_pred[0, -1]
+    #        actions_mat = np.concatenate((actions_mat, action_pred.T), axis=0)
+    #        gt_test = np.concatenate((gt_test, gt.reshape(-1, 1)), axis=0)
+    #    actions_mat = actions_mat[1:]
     # run environment step by step
     env = gym.make(env_name, **kwargs)
     env.seed(seed=seed)
@@ -305,9 +325,13 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
     rewards = []
     gt_mat = []
     rew_cum = 0
-    for ind_stp in range(actions_mat.shape[0]):
+    for ind_stp in range(num_trials*10):
         observations.append(obs)
-        action = actions_mat[ind_stp]
+#        action = actions_mat[ind_stp]
+        obs = obs[np.newaxis]
+        obs = obs[np.newaxis]
+        action = model.predict(obs)
+        action = np.argmax(action, axis=-1)[0]
         obs, rew, _, info = env.step(action)
         rew_cum += rew
         if info['new_trial']:
