@@ -360,9 +360,15 @@ if __name__ == '__main__':
         elif isinstance(env.action_space, gym.spaces.box.Box):
             ACT_SIZE = env.action_space.shape[0] 
 
-        savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}_{extra_wrap}.npz')
-        #savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}.npz')
+        #savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}_{extra_wrap}.npz')
+        if extra_wrap:
+            #savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}/raw.npz')
+            savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}_{extra_wrap}/raw.npz')
+        else:
+            #savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}/raw.npz')
+            savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
         main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
+        
         if not os.path.exists(main_folder):
             os.makedirs(main_folder)
 
