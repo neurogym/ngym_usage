@@ -327,12 +327,12 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
     rew_cum = 0
     for ind_stp in range(num_trials*10):
         observations.append(obs)
-#        action = actions_mat[ind_stp]
+        obs = np.array([env.obs_now])
         obs = obs[np.newaxis]
-        obs = obs[np.newaxis]
+        # obs = obs[np.newaxis]
         action = model.predict(obs)
         action = np.argmax(action, axis=-1)[0]
-        obs, rew, _, info = env.step(action)
+        _, rew, _, info = env.step(action)
         rew_cum += rew
         if info['new_trial']:
             perf.append(rew_cum)
@@ -341,12 +341,6 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
             rewards.append(rew)
             gt_mat.append(info['gt'])
             actions_plt.append(action)
-    #    print(np.mean(perf))
-    #    plt.figure()
-    #    plt.plot(gt_test[1:])
-    #    plt.plot(gt_mat)
-    #    plt.plot(actions_mat, '--')
-    #    asdasd
     if show_fig:
         observations = np.array(observations)
         plotting.fig_(obs=observations[:n_stps_plt],
