@@ -96,7 +96,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
       'MatchingPenny-v0':
           {'timing': {},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': True},
+           'SL': False},  # either responses depend on actns or task is trivial
       'MotorTiming-v0':
           {'timing': {'fixation': ('constant', 200),
                       'cue': ('choice', [100, 200, 300]),
@@ -293,28 +293,6 @@ def run_env(task, task_params, main_folder, **kwargs):
 
 def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
                      show_fig=False, folder='', seed=0, n_stps_plt=100):
-    #    env = gym.make(env_name, **kwargs)
-    #    env.seed(seed=seed)
-    #    env.reset()
-    #    # first trial
-    #    obs, gt = env.obs, env.gt
-    #    obs = obs[np.newaxis]
-    #    action_pred = model.predict(obs)
-    #    action_pred = np.argmax(action_pred, axis=-1)
-    #    actions_mat = action_pred.T
-    #    gt_test = gt.reshape(-1, 1)
-    #    # perf = 0
-    #    for ind_ep in range(num_trials-1):
-    #        env.new_trial()
-    #        obs, gt = env.obs, env.gt
-    #        obs = obs[np.newaxis]
-    #        print(obs.shape)
-    #        action_pred = model.predict(obs)
-    #        action_pred = np.argmax(action_pred, axis=-1)
-    #        # perf += gt[-1] == action_pred[0, -1]
-    #        actions_mat = np.concatenate((actions_mat, action_pred.T), axis=0)
-    #        gt_test = np.concatenate((gt_test, gt.reshape(-1, 1)), axis=0)
-    #    actions_mat = actions_mat[1:]
     # run environment step by step
     env = gym.make(env_name, **kwargs)
     env.seed(seed=seed)
@@ -326,7 +304,11 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
     gt_mat = []
     rew_cum = 0
     for ind_stp in range(num_trials*10):
-        obs = env.obs_now
+        try:
+            obs = env.obs_now
+        except Exception as e:
+            obs = env.obs[0]
+            print(e)
         observations.append(obs)
         obs = obs[np.newaxis]
         obs = obs[np.newaxis]
