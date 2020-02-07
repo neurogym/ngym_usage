@@ -13,7 +13,7 @@ ALL_ENVS_MINIMAL_TIMINGS = {
         'f1': ('constant', 200),
         'delay': ('constant', 200),
         'f2': ('constant', 200),
-        'decision': ('constant', 100)
+        'decision': ('constant', 200)
     },
     'PerceptualDecisionMaking-v0': {
         'fixation': ('constant', 200),  # TODO: depends on subject
@@ -63,7 +63,8 @@ ALL_ENVS_MINIMAL_TIMINGS = {
         'fixation': ('constant', 200),
         'sample': ('constant', 200),
         'first_delay': ('constant', 200),
-        'test': ('constant', 100),
+        'test': ('constant', 200),
+        'decision':('constant',100)
     },
     'DawTwoStep-v0':{ 
     }, 

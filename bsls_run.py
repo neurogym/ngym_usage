@@ -4,6 +4,10 @@
 test training according to params (model, task, seed, trials, rollout)
 """
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"]="3"
+import tensorflow as tf
+tf.logging.set_verbosity(tf.logging.FATAL)
+tf.get_logger().setLevel(3) # is it impossible for tf to shut up?
 import sys
 import numpy as np
 import importlib
@@ -24,7 +28,9 @@ from neurogym.wrappers import monitor
 from neurogym.wrappers import ALL_WRAPPERS
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
-
+import concurrent.futures
+from custom_timings import ALL_ENVS_MINIMAL_TIMINGS
+from custom_wrappers import ALL_WRAPPERS_MINIMAL_RL
 
 def test_env(env, kwargs, num_steps=100):
     """Test if all one environment can at least be run."""
@@ -168,7 +174,7 @@ def train_env_keras_net(env_name, kwargs, folder, rollout, num_h=256,
         curriter_folder= f'{folder}{ind_ep}/'
         perf = eval_net_in_task(model, env_name=env_name, kwargs=kwargs, # crash
                                 tr_per_ep=ntr_save, rollout=rollout, sl='SL',
-                                samples=samples, target=target, folder=folder,
+                                samples=samples, target=target, folder=curriter_folder,
                                 show_fig=False, seed=ind_ep,
                                 save=True, ntr_save=ntr_save)
         perf_training.append(perf)
@@ -255,26 +261,26 @@ def eval_net_in_task(model, env_name, kwargs, tr_per_ep, rollout, sl='SL',
         observations = np.array(observations)
         f = plt.figure()
         plt.subplot(3, 1, 1)
-        plt.imshow(observations[:n_stps_plt, :].T, aspect='auto')
+        plt.imshow(observations[-n_stps_plt:, :].T, aspect='auto')
         plt.title('observations')
         plt.subplot(3, 1, 2)
-        plt.plot(np.arange(n_stps_plt)+1, actions_plt[:n_stps_plt], marker='+')
+        plt.plot(np.arange(n_stps_plt)+1, actions_plt[-n_stps_plt:], marker='+')
         gt = np.array(gt)
         if len(gt.shape) == 2:
             gt = np.argmax(gt, axis=1)
 
-        plt.plot(np.arange(n_stps_plt)+1, gt[:n_stps_plt], 'r')
+        plt.plot(np.arange(n_stps_plt)+1, gt[-n_stps_plt:], 'r')
         # plt.plot(np.arange(n_stps_plt)+1, target_mat[:n_stps_plt], '--y')
         plt.title('actions')
         plt.xlim([-0.5, n_stps_plt+0.5])
         plt.subplot(3, 1, 3)
         rewards = np.array(rewards)
         if len(rewards.shape)==1:
-            plt.plot(np.arange(1,n_stps_plt+1), rewards[:n_stps_plt], c='r')
+            plt.plot(np.arange(1,n_stps_plt+1), rewards[-n_stps_plt:], c='r')
         else:
             colors = [matplotlib.cm.copper(x) for x in np.linspace(0,1,rewards.shape[1])]
             for i in range(rewards.shape[1]):
-                plt.plot(np.arange(n_stps_plt)+1, rewards[:n_stps_plt, i], c=colors[i])
+                plt.plot(np.arange(n_stps_plt)+1, rewards[-n_stps_plt:, i], c=colors[i])
         plt.title('reward')
         plt.xlim([-0.5, n_stps_plt+0.5])
         plt.title(str(np.mean(perf)))
@@ -293,6 +299,56 @@ def apply_wrapper(env, wrap_string):
     return wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[wrap_string])
 
 
+def train_RL(task, alg='A2C', num_trials=100000, rollout=20, dt=100, 
+    ntr_save=10000, n_cpu_tf=1, seed=0): #(**RLkwargs):
+    """task='', alg='A2C', ntrials=100000, nrollout=20, ntr_save=10000, n_cpu_tf=1, seeed=0"""
+    try:
+        seed=0 # RLkwargs['seed']
+        kwargs = {'dt':dt, 'timing': ALL_ENVS_MINIMAL_TIMINGS[task]}
+        nstps_test = 1000
+        env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
+        TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
+        OBS_SIZE = env.observation_space.shape[0]
+        if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+            ACT_SIZE = env.action_space.n
+        elif isinstance(env.action_space, gym.spaces.box.Box):
+            ACT_SIZE = env.action_space.shape[0] 
+
+        savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
+        main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
+
+        if not os.path.exists(main_folder):
+            os.makedirs(main_folder)
+
+
+
+        if alg != 'SL':
+            baselines_kw = {} # for non-common args among RL-algos
+            if alg == 'A2C':
+                from stable_baselines import A2C as algo 
+            elif alg == 'ACER':
+                from stable_baselines import ACER as algo
+            elif alg == 'ACKTR':
+                from stable_baselines import ACKTR as algo
+            elif alg == 'PPO2':
+                from stable_baselines import PPO2 as algo
+                baselines_kw['nminibatches']=1
+
+            env = gym.make(task, **kwargs)
+            env.seed(seed=seed)         
+            
+            env = monitor.Monitor(env, folder=main_folder, sv_fig=True,
+                                        num_tr_save=ntr_save)
+            env = DummyVecEnv([lambda: env])
+            model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
+                        n_cpu_tf_sess=n_cpu_tf,
+                        policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
+            model.learn(total_timesteps=TOT_TIMESTEPS)
+    except Exception as e:
+        print(f'failed at {task}\n{e}')
+
+
+
 if __name__ == '__main__':
     godmode = False
     if len(sys.argv)==2:
@@ -302,14 +358,18 @@ if __name__ == '__main__':
         raise ValueError('usage: bsls_run.py [model] [task] ' +
                          '[seed] [num_trials] [rollout] (wrapper1) (wrapper2) ...')
     if godmode:
-        alg = 'SL'
-        #task = 'this will loop all tasks'
-        seed = 0
-        num_trials = 10000
-        rollout = 20
-        ntr_save = 1000
-        dt = 100
-        n_cpu_tf = 1
+        godkwargs=dict(
+            alg = 'A2C',
+            seed = 0,
+            num_trials = 100000,
+            rollout = 20,
+            ntr_save = 10000,
+            dt = 100,
+            n_cpu_tf = 1
+        )
+        with concurrent.futures.ProcessPoolExecutor(max_workers=7) as executor:
+            for i in executor.map(train_RL, ALL_ENVS_MINIMAL_TIMINGS.keys()):
+                print(f'submitted {i} jobs') 
     else:
         # ARGS
         alg = sys.argv[1]  # a2c acer acktr or ppo2
@@ -321,7 +381,7 @@ if __name__ == '__main__':
             extra_wrap = sys.argv[6:]
         else:
             extra_wrap = []
-        ntr_save = 1000
+        ntr_save = 10000
         dt = 100
         n_cpu_tf = 1  # else ppo2 crashes
 
@@ -339,8 +399,7 @@ if __name__ == '__main__':
     
     # check hardcoded timings
     # from neurogym.custom_timings import ALL_ENVS_MINIMAL_TIMINGS #all_tasks_bsc_timings
-    from custom_timings import ALL_ENVS_MINIMAL_TIMINGS
-    from custom_wrappers import ALL_WRAPPERS_MINIMAL_RL
+    
 
     
     # wrap_str = ALL_WRAPPERS[extra_wrap]
@@ -368,7 +427,7 @@ if __name__ == '__main__':
             #savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}/raw.npz')
             savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
         main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
-        
+
         if not os.path.exists(main_folder):
             os.makedirs(main_folder)
 
@@ -393,7 +452,7 @@ if __name__ == '__main__':
                 #env = wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[extra_wrap])
             
             
-            env = monitor.Monitor(env, folder=main_folder,
+            env = monitor.Monitor(env, folder=main_folder, sv_fig=True,
                                         num_tr_save=ntr_save)
             env = DummyVecEnv([lambda: env])
             model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
@@ -413,61 +472,63 @@ if __name__ == '__main__':
         model.save(f'{main_folder}model')
     
     else:
-        for task in ALL_ENVS_MINIMAL_TIMINGS.keys():
-            try:
-                print(f'testing {task}')
-                kwargs = {'dt':dt, 'timing': ALL_ENVS_MINIMAL_TIMINGS[task]}
+        print('now should be done by concurrent.futures, previously')
+        # for task in ALL_ENVS_MINIMAL_TIMINGS.keys():
+        #     try:
+        #         print(f'testing {task}')
+        #         kwargs = {'dt':dt, 'timing': ALL_ENVS_MINIMAL_TIMINGS[task]}
 
-                # other relevant vars
-                nstps_test = 1000
-                env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
-                TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
-                OBS_SIZE = env.observation_space.shape[0]
-                if isinstance(env.action_space, gym.spaces.discrete.Discrete):
-                    ACT_SIZE = env.action_space.n
-                elif isinstance(env.action_space, gym.spaces.box.Box):
-                    ACT_SIZE = env.action_space.shape[0] 
+        #         # other relevant vars
+        #         nstps_test = 1000
+        #         env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
+        #         TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
+        #         OBS_SIZE = env.observation_space.shape[0]
+        #         if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+        #             ACT_SIZE = env.action_space.n
+        #         elif isinstance(env.action_space, gym.spaces.box.Box):
+        #             ACT_SIZE = env.action_space.shape[0] 
 
-                savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
-                #savpath = os.path.expanduser(f'~/Jan2020/data/{alg}_{task}_{seed}.npz')
-                main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
-                if not os.path.exists(main_folder):
-                    os.makedirs(main_folder)
+        #         savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
+        #         #savpath = os.path.expanduser(f'~/Jan2020/data/{alg}_{task}_{seed}.npz')
+        #         main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
+        #         if not os.path.exists(main_folder):
+        #             os.makedirs(main_folder)
 
-                if alg != 'SL':
-                    baselines_kw = {} # for non-common args among RL-algos
-                    if alg == 'A2C':
-                        from stable_baselines import A2C as algo 
-                    elif alg == 'ACER':
-                        from stable_baselines import ACER as algo
-                    elif alg == 'ACKTR':
-                        from stable_baselines import ACKTR as algo
-                    elif alg == 'PPO2':
-                        from stable_baselines import PPO2 as algo
-                        baselines_kw['nminibatches']=1
+        #         if alg != 'SL':
+        #             baselines_kw = {} # for non-common args among RL-algos
+        #             if alg == 'A2C':
+        #                 from stable_baselines import A2C as algo 
+        #             elif alg == 'ACER':
+        #                 from stable_baselines import ACER as algo
+        #             elif alg == 'ACKTR':
+        #                 from stable_baselines import ACKTR as algo
+        #             elif alg == 'PPO2':
+        #                 from stable_baselines import PPO2 as algo
+        #                 baselines_kw['nminibatches']=1
 
-                    env = gym.make(task, **kwargs)
-                    env.seed(seed=seed)
-                    env = monitor.Monitor(env, folder=main_folder,
-                                                num_tr_save=ntr_save)
-                    env = DummyVecEnv([lambda: env])
-                    model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
-                                n_cpu_tf_sess=n_cpu_tf,
-                                policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
-                    model.learn(total_timesteps=TOT_TIMESTEPS)
-                else:
-                    model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
-                                                rollout=rollout, num_tr=num_trials,
-                                                num_h=256, b_size=128,
-                                                tr_per_ep=1000, verbose=1)
+        #             env = gym.make(task, **kwargs)
+        #             env.seed(seed=seed)
+        #             env = monitor.Monitor(env, folder=main_folder,
+        #                                         num_tr_save=ntr_save)
+        #             env = DummyVecEnv([lambda: env])
+        #             model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
+        #                         n_cpu_tf_sess=n_cpu_tf,
+        #                         policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
+        #             model.learn(total_timesteps=TOT_TIMESTEPS)
+        #         else:
+        #             model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
+        #                                         rollout=rollout, num_tr=num_trials,
+        #                                         num_h=256, b_size=128,
+        #                                         tr_per_ep=1000, verbose=1)
+        #         model.save(f'{main_folder}model')
 
-                eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
-                                rollout=rollout, show_fig=True, sl=alg,
-                                folder=main_folder)
+        #         eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
+        #                         rollout=rollout, show_fig=True, sl=alg,
+        #                         folder=main_folder)
 
-                model.save(f'{main_folder}model')
-            except Exception as e:
-                print(e)
-                os.system(f'echo {task} >> loop.log')
-                os.system(f'echo {e} >> loop.log')
-                continue
+                
+        #     except Exception as e:
+        #         print(e)
+        #         os.system(f'echo {task} >> loop.log')
+        #         os.system(f'echo {e} >> loop.log')
+        #         continue
