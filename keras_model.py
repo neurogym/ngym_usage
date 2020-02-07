@@ -73,7 +73,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'measure': ('choice', [100, 200]),
                       'set': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': True},
       'DelayedMatchSample-v0':
           {'timing': {'fixation': ('constant', 200),
                       'sample': ('constant', 200),
@@ -102,7 +102,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'cue': ('choice', [100, 200, 300]),
                       'set': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},
+           'SL': True},
       'Bandit-v0':
           {'timing': {},
            'loss': 'sparse_categorical_crossentropy',
@@ -145,7 +145,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'delay3': ('constant', 200),
                       'test3': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},  # trials end when agent responds
+           'SL': True},  # trials end when agent responds
       'IntervalDiscrimination-v0':
           {'timing': {'fixation': ('constant', 200),
                       'stim1': ('choice', [100, 200, 300]),
@@ -169,7 +169,7 @@ ALL_ENVS_MINIMAL_TIMINGS =\
           {'timing': {'fixation': ('constant', 200),
                       'stimulus': ('constant', 200)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},  # trials end when agent responds
+           'SL': True},  # trials end when agent responds
       'ReachingDelayResponse-v0':
           {'timing':
               {'stimulus': ('constant', 100),
@@ -183,13 +183,13 @@ ALL_ENVS_MINIMAL_TIMINGS =\
                       'delay': ('choice', [100, 200, 300]),
                       'decision': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False},  # block task
+           'SL': True},  # block task
       'ChangingEnvironment-v0':
           {'timing': {'fixation': ('constant', 200),
                       'stimulus': ('choice', [100, 200, 300]),
                       'decision': ('constant', 100)},
            'loss': 'sparse_categorical_crossentropy',
-           'SL': False}}  # block task
+           'SL': True}}  # block task
 
 assert len(list(set(ALL_ENVS)-set(ALL_ENVS_MINIMAL_TIMINGS))) == 0
 assert len(list(set(ALL_ENVS_MINIMAL_TIMINGS)-set(ALL_ENVS))) == 0
@@ -255,8 +255,8 @@ def run_env(task, task_params, main_folder, **kwargs):
         os.mkdir(figs_folder)
 
     kwargs = {'dt': task_params['dt'], 'timing': task_params['timing']}
-    training_params = {'seq_len': 20, 'num_h': 256, 'steps_per_epoch': 500,
-                       'batch_size': 16, 'stateful': True}
+    training_params = {'seq_len': 20, 'num_h': 256, 'steps_per_epoch': 2000,
+                       'batch_size': 64, 'stateful': True}
     training_params.update(kwargs)
     # Make supervised dataset
     dataset = ngym.Dataset(task, env_kwargs=kwargs,
@@ -326,10 +326,10 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
     gt_mat = []
     rew_cum = 0
     for ind_stp in range(num_trials*10):
+        obs = env.obs_now
         observations.append(obs)
-        obs = np.array([env.obs_now])
         obs = obs[np.newaxis]
-        # obs = obs[np.newaxis]
+        obs = obs[np.newaxis]
         action = model.predict(obs)
         action = np.argmax(action, axis=-1)[0]
         _, rew, _, info = env.step(action)
@@ -352,7 +352,7 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
 
 if __name__ == '__main__':
     plt.close('all')
-    main_folder = '/home/molano/ngym_usage/results/SL_tests/'
+    main_folder = '/home/molano/ngym_usage/results/SL_tests_stateful/'
     run_all_envs(main_folder=main_folder)
 
     #    task = 'ContextDecisionMaking-v0'  # 'PerceptualDecisionMaking-v0'
