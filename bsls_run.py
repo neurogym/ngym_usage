@@ -50,9 +50,8 @@ def test_env(env, kwargs, num_steps=100):
     return env
 
 
-def get_dataset_for_SL(
-    env_name, kwargs, rollout, n_tr=1000000, nstps_test=1000, verbose=0, seed=None
-):
+def get_dataset_for_SL(env_name, kwargs, rollout, n_tr=1000000,
+                       nstps_test=1000, verbose=0, seed=None):
     env = gym.make(env_name, **kwargs)
     env.seed(seed)
     env.reset()
@@ -74,11 +73,10 @@ def get_dataset_for_SL(
         for tr in range(n_tr):
             obs = env.obs
             gt = env.gt
-            samples[count_stps : count_stps + obs.shape[0], :] = obs
-            target[count_stps : count_stps + gt.shape[0], :] = to_categorical(
+            samples[count_stps: count_stps + obs.shape[0], :] = obs
+            target[count_stps: count_stps + gt.shape[0], :] = to_categorical(
                 gt, num_classes=ACT_SIZE
             )
-            # target[count_stps:count_stps+gt.shape[0], :] = np.eye(ACT_SIZE)[gt]
             count_stps += obs.shape[0]
             assert obs.shape[0] == gt.shape[0]
             env.new_trial()
@@ -87,8 +85,8 @@ def get_dataset_for_SL(
         for tr in range(n_tr):
             obs = env.obs
             gt = env.gt
-            samples[count_stps : count_stps + obs.shape[0], :] = obs
-            target[count_stps : count_stps + gt.shape[0], :] = gt
+            samples[count_stps: count_stps + obs.shape[0], :] = obs
+            target[count_stps: count_stps + gt.shape[0], :] = gt
             count_stps += obs.shape[0]
             assert obs.shape[0] == gt.shape[0]
             env.new_trial()
@@ -114,7 +112,7 @@ def get_dataset_for_SL(
 
     """incomplete = count_stps % rollout
     if incomplete:
-        for item, dim2 in zip([samples, target], [OBS_SIZE, ACT_SIZE]):           
+        for item, dim2 in zip([samples, target], [OBS_SIZE, ACT_SIZE]):
             item = (item[:-incomplete, :].flatten()
                     .reshape((-1, rollout, dim2))) """
     # crashes because trying to reshape (sometimes)random size data
@@ -139,12 +137,12 @@ def train_env_keras_net(
         apply_wrapper(env, wrap_string)
     # env = wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[extra_wrap])
     # from https://www.tensorflow.org/guide/keras/rnn
-    xin = Input(
-        batch_shape=(None, rollout, env.observation_space.shape[0]), dtype="float32"
-    )
+    xin = Input(batch_shape=(None, rollout, env.observation_space.shape[0]),
+                dtype="float32")
     seq = LSTM(num_h, return_sequences=True)(xin)
     if isinstance(env.action_space, gym.spaces.discrete.Discrete):
-        mlp = TimeDistributed(Dense(env.action_space.n, activation="softmax"))(seq)
+        mlp = TimeDistributed(Dense(env.action_space.n,
+                                    activation="softmax"))(seq)
         default_loss = "categorical_crossentropy"
         default_metric = ["accuracy"]
     elif isinstance(env.action_space, gym.spaces.box.Box):  # 1D
@@ -158,7 +156,8 @@ def train_env_keras_net(
             default_metric = ["mae"]
     # TODO: same but using gym.spaces.dict.Dict multidiscrete
     else:
-        raise NotImplementedError("just accepting discrete and box action spaces ATM.")
+        raise NotImplementedError('just accepting discrete' +
+                                  ' and box action spaces ATM.')
     model = Model(inputs=xin, outputs=mlp)
     model.summary(line_length=150)
     model.compile(optimizer="Adam", loss=default_loss, metrics=default_metric)
@@ -171,9 +170,10 @@ def train_env_keras_net(
         # train
         samples = np.empty(0)  # temporary workaround
         while samples.size == 0:
-            samples, target, _ = get_dataset_for_SL(
-                env_name=env_name, kwargs=kwargs, rollout=rollout, n_tr=tr_per_ep
-            )
+            samples, target, _ = get_dataset_for_SL(env_name=env_name,
+                                                    kwargs=kwargs,
+                                                    rollout=rollout,
+                                                    n_tr=tr_per_ep)
 
         try:
             model.fit(samples, target, epochs=1, verbose=0)
@@ -260,9 +260,10 @@ def eval_net_in_task(
     ntr_save=1000,
 ):
     if samples is None:
-        samples, target, _ = get_dataset_for_SL(
-            env_name=env_name, kwargs=kwargs, rollout=rollout, n_tr=tr_per_ep, seed=seed
-        )  # crashes
+        samples, target, _ = get_dataset_for_SL(env_name=env_name,
+                                                kwargs=kwargs,
+                                                rollout=rollout,
+                                                n_tr=tr_per_ep, seed=seed)
     if sl == "SL":
         actions = model.predict(samples)
     env = gym.make(env_name, **kwargs)
@@ -285,12 +286,14 @@ def eval_net_in_task(
         if (sl == "SL") and isinstance(
             env.action_space, gym.spaces.discrete.Discrete
         ):  # old way
-            action = actions[int(np.floor(index / rollout)), (index % rollout), :]
+            action = actions[int(np.floor(index / rollout)),
+                             (index % rollout), :]
             action = np.argmax(action)
         elif (sl == "SL") and isinstance(
             env.action_space, gym.spaces.box.Box
         ):  # modify this
-            action = actions[int(np.floor(index / rollout)), (index % rollout), :]
+            action = actions[int(np.floor(index / rollout)),
+                             (index % rollout), :]
             # action = np.argmax(action)
         else:  # RL ~ which perhaps still does not work when using boxes
             action, _ = model.predict([obs])
@@ -303,9 +306,10 @@ def eval_net_in_task(
             perf.append(rew)
         if show_fig:
             rew_temp.append(rew)
-            rewards.append(rew)  # sometimes rew is a list sometimes it is not!?!
+            rewards.append(rew)
             gt.append(info["gt"])
-            target_mat.append(target[int(np.floor(index / rollout)), index % rollout])
+            target_mat.append(target[int(np.floor(index / rollout)),
+                                     index % rollout])
             actions_plt.append(action)
 
     if show_fig:
@@ -316,7 +320,8 @@ def eval_net_in_task(
         plt.imshow(observations[-n_stps_plt:, :].T, aspect="auto")
         plt.title("observations")
         plt.subplot(3, 1, 2)
-        plt.plot(np.arange(n_stps_plt) + 1, actions_plt[-n_stps_plt:], marker="+")
+        plt.plot(np.arange(n_stps_plt) + 1,
+                 actions_plt[-n_stps_plt:], marker="+")
         gt = np.array(gt)
         if len(gt.shape) == 2:
             gt = np.argmax(gt, axis=1)
@@ -328,15 +333,16 @@ def eval_net_in_task(
         plt.subplot(3, 1, 3)
         rewards = np.array(rewards)
         if len(rewards.shape) == 1:
-            plt.plot(np.arange(1, n_stps_plt + 1), rewards[-n_stps_plt:], c="r")
+            plt.plot(np.arange(1, n_stps_plt + 1),
+                     rewards[-n_stps_plt:], c="r")
         else:
             colors = [
-                matplotlib.cm.copper(x) for x in np.linspace(0, 1, rewards.shape[1])
+                matplotlib.cm.copper(x) for x in np.linspace(0, 1,
+                                                             rewards.shape[1])
             ]
             for i in range(rewards.shape[1]):
-                plt.plot(
-                    np.arange(n_stps_plt) + 1, rewards[-n_stps_plt:, i], c=colors[i]
-                )
+                plt.plot(np.arange(n_stps_plt) + 1,
+                         rewards[-n_stps_plt:, i], c=colors[i])
         plt.title("reward")
         plt.xlim([-0.5, n_stps_plt + 0.5])
         plt.title(str(np.mean(perf)))
@@ -365,8 +371,11 @@ def train_RL(
     ntr_save=10000,
     n_cpu_tf=1,
     seed=0,
-):  # (**RLkwargs):
-    """task='', alg='A2C', ntrials=100000, nrollout=20, ntr_save=10000, n_cpu_tf=1, seeed=0"""
+):
+    """
+    task='', alg='A2C', ntrials=100000, nrollout=20,
+    ntr_save=10000, n_cpu_tf=1, seeed=0
+    """
     try:
         seed = 0  # RLkwargs['seed']
         kwargs = {"dt": dt, "timing": ALL_ENVS_MINIMAL_TIMINGS[task]}
@@ -457,25 +466,6 @@ if __name__ == "__main__":
         dt = 100
         n_cpu_tf = 1  # else ppo2 crashes
 
-    # states_list = 'fixation stim1 delay1 stim2 delay2 go1 go2 reach' +\
-    #     ' delay_btw_stim delay_aft_stim decision sample first_delay test' +\
-    #     ' second_delay delay test1 test2 delay3 test3 go_cue resp_delay' +\
-    #     ' target cue set ready measure f1 f2 offer_on pre_sure'
-
-    # states_list = states_list.split(' ')
-
-    # kwargs = {'dt': dt,
-    #           'timing': dict(zip(states_list,
-    #                              zip(['constant']*len(states_list),
-    #                                  [100]*len(states_list))))}
-
-    # check hardcoded timings
-    # from neurogym.custom_timings import ALL_ENVS_MINIMAL_TIMINGS #all_tasks_bsc_timings
-
-    # wrap_str = ALL_WRAPPERS[extra_wrap]
-    # wrap_module = importlib.import_module(wrap_str.split(':')[0])
-    # wrap_method = getattr(wrap_module, wrap_str.split(':')[1])
-
     if not godmode:
         kwargs = {"dt": dt, "timing": ALL_ENVS_MINIMAL_TIMINGS[task]}
 
@@ -489,15 +479,13 @@ if __name__ == "__main__":
         elif isinstance(env.action_space, gym.spaces.box.Box):
             ACT_SIZE = env.action_space.shape[0]
 
-        # savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}_{extra_wrap}.npz')
         if extra_wrap:
-            # savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}/raw.npz')
             savpath = os.path.expanduser(
                 f"../trash/{alg}_{task}_{seed}_{extra_wrap}/raw.npz"
             )
         else:
-            # savpath = os.path.expanduser(f'~/Jan2020/data/3rd/{alg}_{task}_{seed}_{extra_wrap}/raw.npz')
-            savpath = os.path.expanduser(f"../trash/{alg}_{task}_{seed}/raw.npz")
+            savpath =\
+                os.path.expanduser(f"../trash/{alg}_{task}_{seed}/raw.npz")
         main_folder = os.path.dirname(savpath) + "/"  # savpath[:-7] + '/'
 
         if not os.path.exists(main_folder):
@@ -564,61 +552,3 @@ if __name__ == "__main__":
 
     else:
         print("now should be done by concurrent.futures, previously")
-        # for task in ALL_ENVS_MINIMAL_TIMINGS.keys():
-        #     try:
-        #         print(f'testing {task}')
-        #         kwargs = {'dt':dt, 'timing': ALL_ENVS_MINIMAL_TIMINGS[task]}
-
-        #         # other relevant vars
-        #         nstps_test = 1000
-        #         env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
-        #         TOT_TIMESTEPS = int(nstps_test*num_trials/(env.num_tr))
-        #         OBS_SIZE = env.observation_space.shape[0]
-        #         if isinstance(env.action_space, gym.spaces.discrete.Discrete):
-        #             ACT_SIZE = env.action_space.n
-        #         elif isinstance(env.action_space, gym.spaces.box.Box):
-        #             ACT_SIZE = env.action_space.shape[0]
-
-        #         savpath = os.path.expanduser(f'../trash/{alg}_{task}_{seed}/raw.npz')
-        #         #savpath = os.path.expanduser(f'~/Jan2020/data/{alg}_{task}_{seed}.npz')
-        #         main_folder =  os.path.dirname(savpath) + '/' # savpath[:-7] + '/'
-        #         if not os.path.exists(main_folder):
-        #             os.makedirs(main_folder)
-
-        #         if alg != 'SL':
-        #             baselines_kw = {} # for non-common args among RL-algos
-        #             if alg == 'A2C':
-        #                 from stable_baselines import A2C as algo
-        #             elif alg == 'ACER':
-        #                 from stable_baselines import ACER as algo
-        #             elif alg == 'ACKTR':
-        #                 from stable_baselines import ACKTR as algo
-        #             elif alg == 'PPO2':
-        #                 from stable_baselines import PPO2 as algo
-        #                 baselines_kw['nminibatches']=1
-
-        #             env = gym.make(task, **kwargs)
-        #             env.seed(seed=seed)
-        #             env = monitor.Monitor(env, folder=main_folder,
-        #                                         num_tr_save=ntr_save)
-        #             env = DummyVecEnv([lambda: env])
-        #             model = algo(LstmPolicy, env, verbose=0, n_steps=rollout, # no verbose :D
-        #                         n_cpu_tf_sess=n_cpu_tf,
-        #                         policy_kwargs={'feature_extraction': "mlp"}, **baselines_kw)
-        #             model.learn(total_timesteps=TOT_TIMESTEPS)
-        #         else:
-        #             model = train_env_keras_net(task, kwargs=kwargs, folder=main_folder,
-        #                                         rollout=rollout, num_tr=num_trials,
-        #                                         num_h=256, b_size=128,
-        #                                         tr_per_ep=1000, verbose=1)
-        #         model.save(f'{main_folder}model')
-
-        #         eval_net_in_task(model, task, kwargs=kwargs, tr_per_ep=1000,
-        #                         rollout=rollout, show_fig=True, sl=alg,
-        #                         folder=main_folder)
-
-        #     except Exception as e:
-        #         print(e)
-        #         os.system(f'echo {task} >> loop.log')
-        #         os.system(f'echo {e} >> loop.log')
-        #         continue
