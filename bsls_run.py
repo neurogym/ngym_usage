@@ -69,29 +69,28 @@ def define_model(seq_len, num_h, obs_size, act_size, batch_size,
     return model
 
 
-def run_env(task, task_params, main_folder, name, **train_kwargs):
+def run_env(task, task_params, load_path, main_folder, name, **train_kwargs):
     """
     task: name of task
     task_params is a dict with items:
         dt: timestep (ms, int)
         timing: duration of periods forming trial (ms)
-    main_folder: main folder where the task folder will be stored
+    main_folder: main folder where the data will be stored
+    load_path: if != '', path to load weights for model
     train_kwargs: is a dict with items:
         seq_len: rollout (def: 20 timesteps, int)
         num_h: number of units (def: 256 units, int)
         steps_per_epoch: (def: 2000, int)
         batch_size: batch size
         stateful: if True network will remember state from batch to batch
+        num_stps_eval: number of steps for evaluation
+        loss: loss for training
     """
-    folder = main_folder + task + '/'
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-    figs_folder = main_folder + '/figs/'
-    if not os.path.exists(figs_folder):
-        os.mkdir(figs_folder)
 
     training_params = {'seq_len': 20, 'num_h': 256, 'steps_per_epoch': 2000,
-                       'batch_size': 64, 'stateful': True}
+                       'batch_size': 64, 'stateful': True,
+                       'num_stps_eval': 10000,
+                       'loss': 'sparse_categorical_crossentropy'}
     training_params.update(train_kwargs)
     # Make supervised dataset
     dataset = ngym.Dataset(task, env_kwargs=task_params,
@@ -107,23 +106,26 @@ def run_env(task, task_params, main_folder, name, **train_kwargs):
                          obs_size=obs_size, act_size=act_size,
                          batch_size=training_params['batch_size'],
                          stateful=training_params['stateful'],
-                         loss=task_params['loss'])
+                         loss=training_params['loss'])
+    if load_path != '':
+        model.load_weights(load_path)
     # Train network
     data_generator = (dataset()
                       for i in range(training_params['steps_per_epoch']))
     model.fit(data_generator, verbose=1,
               steps_per_epoch=training_params['steps_per_epoch'])
-    model.save_weights(folder+task+name)
+    model.save_weights(main_folder+task+name)
     # evaluate
     model_test = define_model(seq_len=1, batch_size=1,
                               obs_size=obs_size, act_size=act_size,
                               stateful=training_params['stateful'],
                               num_h=training_params['num_h'],
-                              loss=task_params['loss'])
-    model_test.load_weights(folder+task+name)
-    perf = eval_net_in_task(model_test, task, task_params, dataset,
-                            show_fig=True, folder=figs_folder, name=name)
-    return perf
+                              loss=training_params['loss'])
+    model_test.load_weights(main_folder+task+name)
+    eval_net_in_task(model_test, task, task_params, dataset,
+                     num_steps=training_params['num_stps_eval'],
+                     show_fig=True, folder=main_folder, name=name)
+    return main_folder+task+name
 
 
 def eval_net_in_task(model, env_name, kwargs, dataset, num_steps=10000,
@@ -136,21 +138,17 @@ def eval_net_in_task(model, env_name, kwargs, dataset, num_steps=10000,
     env.seed(seed=seed)
     env = monitor.Monitor(env, folder=folder, sv_per=num_steps-10,
                           sv_stp='timestep', sv_fig=show_fig, name=name)
-    obs = env.reset()
-    perf = []
-    observations = []
+    env.reset()
     for ind_stp in range(num_steps):
         try:
             obs = env.obs_now
         except Exception:
             obs = env.obs[0]
-        observations.append(obs)
         obs = obs[np.newaxis]
         obs = obs[np.newaxis]
         action = model.predict(obs)
         action = np.argmax(action, axis=-1)[0]
         _, _, _, _ = env.step(action)
-    return np.mean(perf)
 
 
 def apply_wrapper(env, wrap_string):
@@ -168,7 +166,7 @@ def train_RL(task, alg="A2C", num_trials=100000, rollout=20, dt=100,
     """
     try:
         seed = 0  # RLkwargs['seed']
-        kwargs = {"dt": dt, "timing": ALL_ENVS_MINIMAL_TIMINGS[task]}
+        kwargs = {"dt": dt, "timing": ALL_ENVS_MINIMAL_TIMINGS[task]['timing']}
         nstps_test = 1000
         env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
         TOT_TIMESTEPS = int(nstps_test * num_trials / (env.num_tr))
@@ -252,7 +250,7 @@ if __name__ == "__main__":
         n_cpu_tf = 1  # else ppo2 crashes
 
     if not godmode:
-        kwargs = {"dt": dt, "timing": ALL_ENVS_MINIMAL_TIMINGS[task]}
+        kwargs = {"dt": dt, "timing": ALL_ENVS_MINIMAL_TIMINGS[task]['timing']}
 
         # other relevant vars
         nstps_test = 1000
@@ -266,13 +264,12 @@ if __name__ == "__main__":
 
         if extra_wrap:
             savpath = os.path.expanduser(
-                f"../trash/{alg}_{task}_{seed}_{extra_wrap}/raw.npz"
-            )
+                f"~/res080220/{alg}_{task}_{seed}_{extra_wrap}/raw.npz")
         else:
             savpath =\
-                os.path.expanduser(f"../trash/{alg}_{task}_{seed}/raw.npz")
-        main_folder = os.path.dirname(savpath) + "/"  # savpath[:-7] + '/'
-
+                os.path.expanduser(f"~/res080220/{alg}_{task}_{seed}/raw.npz")
+        main_folder = os.path.dirname(savpath) + "/"
+        print('Saving here: ', main_folder)
         if not os.path.exists(main_folder):
             os.makedirs(main_folder)
 
@@ -311,14 +308,21 @@ if __name__ == "__main__":
             model.learn(total_timesteps=TOT_TIMESTEPS)
             model.save(f"{main_folder}model")
         else:
+            batch_size = 64
+            steps_per_epoch = int(np.ceil(TOT_TIMESTEPS/(rollout*batch_size)))
             training_params = {'seq_len': rollout, 'num_h': 256,
-                               'steps_per_epoch': 2000,
-                               'batch_size': 64, 'stateful': True}
-            sv_stp = 4  # save data every sv_stp epochs
+                               'steps_per_epoch': steps_per_epoch,
+                               'batch_size': batch_size, 'stateful': True,
+                               'num_stps_eval': 10000,
+                               'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss']}
+            sv_stp = 2  # save data every sv_stp epochs
             num_svs = int(training_params['steps_per_epoch']/sv_stp)
+            load_path = ''
             for ind_ep in range(num_svs):
-                run_env(task=task, task_params=kwargs, main_folder=main_folder,
-                        name=str(ind_ep), **training_params)
+                load_path = run_env(task=task, task_params=kwargs,
+                                    load_path=load_path,
+                                    main_folder=main_folder,
+                                    name=str(ind_ep), **training_params)
 
     else:
         print("now should be done by concurrent.futures, previously")
