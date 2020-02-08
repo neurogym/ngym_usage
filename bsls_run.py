@@ -297,22 +297,22 @@ if __name__ == "__main__":
             model.learn(total_timesteps=TOT_TIMESTEPS)
             model.save(f"{main_folder}model")
         else:
-            batch_size = 64
+            b_size = 64
             steps_per_epoch = 5
             training_params = {'seq_len': rollout, 'num_h': 256,
                                'steps_per_epoch': steps_per_epoch,
-                               'batch_size': batch_size, 'stateful': True,
-                               'num_stps_eval': 1000,
+                               'batch_size': b_size, 'stateful': True,
+                               'num_stps_eval': b_size*rollout*steps_per_epoch,
                                'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss'],
                                'load_path': ''}
-            num_stps_per_sv = steps_per_epoch*rollout*batch_size
+            num_stps_per_sv = steps_per_epoch*rollout*b_size
             num_svs = int(np.ceil(TOT_TIMESTEPS/(num_stps_per_sv)))+1
             for ind_ep in range(num_svs):
                 print('{:d} out of {:d}'.format(ind_ep+1, num_svs))
                 load_path = run_env(task=task, task_params=kwargs,
                                     main_folder=main_folder,
                                     name=str(ind_ep), **training_params,
-                                    sv_fig=(ind_ep%2==0))
+                                    sv_fig=(ind_ep % 2 == 0))
                 training_params['load_path'] = load_path
         plotting.plot_rew_across_training(folder=main_folder)
 
