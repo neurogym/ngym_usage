@@ -63,7 +63,7 @@ def define_model(seq_len, num_h, obs_size, act_size, batch_size,
     return model
 
 
-def run_env(task, task_params, main_folder, name, **train_kwargs):
+def run_env(task, task_params, main_folder, name, sv_fig, **train_kwargs):
     """
     task: name of task
     task_params is a dict with items:
@@ -123,7 +123,7 @@ def run_env(task, task_params, main_folder, name, **train_kwargs):
     model_test.load_weights(main_folder+task+name)
     eval_net_in_task(model_test, task, task_params, dataset,
                      num_steps=training_params['num_stps_eval'],
-                     show_fig=True, folder=main_folder, name=name)
+                     show_fig=sv_fig, folder=main_folder, name=name)
     return main_folder+task+name
 
 
@@ -250,7 +250,7 @@ if __name__ == "__main__":
         nstps_test = 1000
         env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
         TOT_TIMESTEPS = int(nstps_test * num_trials / (env.num_tr))
-
+        print('Total number of steps: ', TOT_TIMESTEPS)
         if extra_wrap:
             savpath = os.path.expanduser(
                 f"~/res080220/{alg}_{task}_{seed}_{extra_wrap}/raw.npz")
@@ -298,22 +298,23 @@ if __name__ == "__main__":
             model.save(f"{main_folder}model")
         else:
             batch_size = 64
-            steps_per_epoch = int(np.ceil(TOT_TIMESTEPS/(rollout*batch_size)))
+            steps_per_epoch = 5
             training_params = {'seq_len': rollout, 'num_h': 256,
                                'steps_per_epoch': steps_per_epoch,
                                'batch_size': batch_size, 'stateful': True,
-                               'num_stps_eval': 10000,
+                               'num_stps_eval': 1000,
                                'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss'],
                                'load_path': ''}
-            sv_stp = 2  # save data every sv_stp epochs
-            num_svs = int(training_params['steps_per_epoch']/sv_stp)
+            num_stps_per_sv = steps_per_epoch*rollout*batch_size
+            num_svs = int(np.ceil(TOT_TIMESTEPS/(num_stps_per_sv)))+1
             for ind_ep in range(num_svs):
+                print('{:d} out of {:d}'.format(ind_ep+1, num_svs))
                 load_path = run_env(task=task, task_params=kwargs,
                                     main_folder=main_folder,
-                                    name=str(ind_ep), **training_params)
+                                    name=str(ind_ep), **training_params,
+                                    sv_fig=(ind_ep%2==0))
                 training_params['load_path'] = load_path
         plotting.plot_rew_across_training(folder=main_folder)
-
 
     else:
         print("now should be done by concurrent.futures, previously")
