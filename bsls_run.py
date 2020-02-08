@@ -13,21 +13,15 @@ tf.get_logger().setLevel(3)  # is it impossible for tf to shut up?
 import sys
 import numpy as np
 import importlib
-import time
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Dense, LSTM, TimeDistributed, Input
 from tensorflow.keras.utils import to_categorical
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 sys.path.append(os.path.expanduser("~/gym"))
 sys.path.append(os.path.expanduser("~/stable-baselines"))
 sys.path.append(os.path.expanduser("~/neurogym"))
 import gym
 import neurogym as ngym  # need to import it so ngym envs are registered
-
 from neurogym.utils import plotting
 from neurogym.wrappers import monitor
 from neurogym.wrappers import ALL_WRAPPERS
@@ -69,7 +63,7 @@ def define_model(seq_len, num_h, obs_size, act_size, batch_size,
     return model
 
 
-def run_env(task, task_params, load_path, main_folder, name, **train_kwargs):
+def run_env(task, task_params, main_folder, name, **train_kwargs):
     """
     task: name of task
     task_params is a dict with items:
@@ -90,7 +84,8 @@ def run_env(task, task_params, load_path, main_folder, name, **train_kwargs):
     training_params = {'seq_len': 20, 'num_h': 256, 'steps_per_epoch': 2000,
                        'batch_size': 64, 'stateful': True,
                        'num_stps_eval': 10000,
-                       'loss': 'sparse_categorical_crossentropy'}
+                       'loss': 'sparse_categorical_crossentropy',
+                       'load_path': ''}
     training_params.update(train_kwargs)
     # Make supervised dataset
     dataset = ngym.Dataset(task, env_kwargs=task_params,
@@ -99,22 +94,26 @@ def run_env(task, task_params, load_path, main_folder, name, **train_kwargs):
     inputs, targets = dataset()
     env = dataset.env
     obs_size = env.observation_space.shape[0]
-    act_size = env.action_space.n
+    if isinstance(env.action_space, gym.spaces.discrete.Discrete):
+        act_size = env.action_space.n
+    elif isinstance(env.action_space, gym.spaces.box.Box):
+        act_size = env.action_space.shape[0]
     # build model
-    model = define_model(seq_len=training_params['seq_len'],
-                         num_h=training_params['num_h'],
-                         obs_size=obs_size, act_size=act_size,
-                         batch_size=training_params['batch_size'],
-                         stateful=training_params['stateful'],
-                         loss=training_params['loss'])
-    if load_path != '':
-        model.load_weights(load_path)
+    if training_params['load_path'] == '':
+        model = define_model(seq_len=training_params['seq_len'],
+                             num_h=training_params['num_h'],
+                             obs_size=obs_size, act_size=act_size,
+                             batch_size=training_params['batch_size'],
+                             stateful=training_params['stateful'],
+                             loss=training_params['loss'])
+    else:
+        model = load_model(training_params['load_path'])
     # Train network
     data_generator = (dataset()
                       for i in range(training_params['steps_per_epoch']))
     model.fit(data_generator, verbose=1,
               steps_per_epoch=training_params['steps_per_epoch'])
-    model.save_weights(main_folder+task+name)
+    model.save(main_folder+task+name)
     # evaluate
     model_test = define_model(seq_len=1, batch_size=1,
                               obs_size=obs_size, act_size=act_size,
@@ -170,11 +169,6 @@ def train_RL(task, alg="A2C", num_trials=100000, rollout=20, dt=100,
         nstps_test = 1000
         env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
         TOT_TIMESTEPS = int(nstps_test * num_trials / (env.num_tr))
-        OBS_SIZE = env.observation_space.shape[0]
-        if isinstance(env.action_space, gym.spaces.discrete.Discrete):
-            ACT_SIZE = env.action_space.n
-        elif isinstance(env.action_space, gym.spaces.box.Box):
-            ACT_SIZE = env.action_space.shape[0]
 
         savpath = os.path.expanduser(f"../trash/{alg}_{task}_{seed}/raw.npz")
         main_folder = os.path.dirname(savpath) + "/"  # savpath[:-7] + '/'
@@ -256,11 +250,6 @@ if __name__ == "__main__":
         nstps_test = 1000
         env = test_env(task, kwargs=kwargs, num_steps=nstps_test)
         TOT_TIMESTEPS = int(nstps_test * num_trials / (env.num_tr))
-        OBS_SIZE = env.observation_space.shape[0]
-        if isinstance(env.action_space, gym.spaces.discrete.Discrete):
-            ACT_SIZE = env.action_space.n
-        elif isinstance(env.action_space, gym.spaces.box.Box):
-            ACT_SIZE = env.action_space.shape[0]
 
         if extra_wrap:
             savpath = os.path.expanduser(
@@ -314,15 +303,17 @@ if __name__ == "__main__":
                                'steps_per_epoch': steps_per_epoch,
                                'batch_size': batch_size, 'stateful': True,
                                'num_stps_eval': 10000,
-                               'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss']}
+                               'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss'],
+                               'load_path': ''}
             sv_stp = 2  # save data every sv_stp epochs
             num_svs = int(training_params['steps_per_epoch']/sv_stp)
-            load_path = ''
             for ind_ep in range(num_svs):
                 load_path = run_env(task=task, task_params=kwargs,
-                                    load_path=load_path,
                                     main_folder=main_folder,
                                     name=str(ind_ep), **training_params)
+                training_params['load_path'] = load_path
+        plotting.plot_rew_across_training(folder=main_folder)
+
 
     else:
         print("now should be done by concurrent.futures, previously")
