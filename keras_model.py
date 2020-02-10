@@ -294,6 +294,8 @@ def run_env(task, task_params, main_folder, **kwargs):
 def eval_net_in_task(model, env_name, kwargs, dataset, num_trials=1000,
                      show_fig=False, folder='', seed=0, n_stps_plt=100):
     # run environment step by step
+    if env_name == 'CVLearning-v0':
+        kwargs['init_ph'] = 4
     env = gym.make(env_name, **kwargs)
     env.seed(seed=seed)
     obs = env.reset()
