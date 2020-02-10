@@ -28,8 +28,8 @@ from neurogym.wrappers import ALL_WRAPPERS
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv
 import concurrent.futures
-from custom_timings import ALL_ENVS_MINIMAL_TIMINGS
-from custom_wrappers import ALL_WRAPPERS_MINIMAL_RL
+from neurogym.custom_timings import ALL_ENVS_MINIMAL_TIMINGS
+from neurogym.custom_wrappers import ALL_WRAPPERS_MINIMAL_RL
 
 
 def test_env(env, kwargs, num_steps=100):
@@ -192,9 +192,8 @@ def train_RL(task, alg="A2C", num_trials=100000, rollout=20, dt=100,
             env = gym.make(task, **kwargs)
             env.seed(seed=seed)
 
-            env = monitor.Monitor(
-                env, folder=main_folder, sv_fig=True, num_tr_save=ntr_save
-            )
+            env = monitor.Monitor(env, folder=main_folder, sv_fig=True,
+                                  sv_per=ntr_save)
             env = DummyVecEnv([lambda: env])
             model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
                          n_cpu_tf_sess=n_cpu_tf,
@@ -258,63 +257,62 @@ if __name__ == "__main__":
             savpath =\
                 os.path.expanduser(f"~/res080220/{alg}_{task}_{seed}/raw.npz")
         main_folder = os.path.dirname(savpath) + "/"
-        print('Saving here: ', main_folder)
-        if not os.path.exists(main_folder):
-            os.makedirs(main_folder)
+        if not os.path.exists(main_folder + 'bhvr_data_all.npz'):
+            print('Saving here: ', main_folder)
+            if not os.path.exists(main_folder):
+                os.makedirs(main_folder)
 
-        if alg != "SL":
-            baselines_kw = {}  # for non-common args among RL-algos
-            if alg == "A2C":
-                from stable_baselines import A2C as algo
-            elif alg == "ACER":
-                from stable_baselines import ACER as algo
-            elif alg == "ACKTR":
-                from stable_baselines import ACKTR as algo
-            elif alg == "PPO2":
-                from stable_baselines import PPO2 as algo
+            if alg != "SL":
+                baselines_kw = {}  # for non-common args among RL-algos
+                if alg == "A2C":
+                    from stable_baselines import A2C as algo
+                elif alg == "ACER":
+                    from stable_baselines import ACER as algo
+                elif alg == "ACKTR":
+                    from stable_baselines import ACKTR as algo
+                elif alg == "PPO2":
+                    from stable_baselines import PPO2 as algo
 
-                baselines_kw["nminibatches"] = 1
+                    baselines_kw["nminibatches"] = 1
 
-            env = gym.make(task, **kwargs)
-            env.seed(seed=seed)
-            for wrap in extra_wrap:
-                env = apply_wrapper(env, wrap)
-                # env = wrap_method(env, **ALL_WRAPPERS_MINIMAL_RL[extra_wrap])
+                env = gym.make(task, **kwargs)
+                env.seed(seed=seed)
+                for wrap in extra_wrap:
+                    env = apply_wrapper(env, wrap)
 
-            env = monitor.Monitor(
-                env, folder=main_folder, sv_fig=True, num_tr_save=ntr_save
-            )
-            env = DummyVecEnv([lambda: env])
-            model = algo(
-                LstmPolicy,
-                env,
-                verbose=0,
-                n_steps=rollout,  # no verbose :D
-                n_cpu_tf_sess=n_cpu_tf,
-                policy_kwargs={"feature_extraction": "mlp"},
-                **baselines_kw,
-            )
-            model.learn(total_timesteps=TOT_TIMESTEPS)
-            model.save(f"{main_folder}model")
-        else:
-            b_size = 64
-            steps_per_epoch = 5
-            training_params = {'seq_len': rollout, 'num_h': 256,
-                               'steps_per_epoch': steps_per_epoch,
-                               'batch_size': b_size, 'stateful': True,
-                               'num_stps_eval': b_size*rollout*steps_per_epoch,
-                               'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss'],
-                               'load_path': ''}
-            num_stps_per_sv = steps_per_epoch*rollout*b_size
-            num_svs = int(np.ceil(TOT_TIMESTEPS/(num_stps_per_sv)))+1
-            for ind_ep in range(num_svs):
-                print('{:d} out of {:d}'.format(ind_ep+1, num_svs))
-                load_path = run_env(task=task, task_params=kwargs,
-                                    main_folder=main_folder,
-                                    name=str(ind_ep), **training_params,
-                                    sv_fig=(ind_ep % 2 == 0))
-                training_params['load_path'] = load_path
-        plotting.plot_rew_across_training(folder=main_folder)
+                env = monitor.Monitor(env, folder=main_folder, sv_fig=True,
+                                      sv_per=ntr_save)
+                env = DummyVecEnv([lambda: env])
+                model = algo(
+                    LstmPolicy,
+                    env,
+                    verbose=0,
+                    n_steps=rollout,  # no verbose :D
+                    n_cpu_tf_sess=n_cpu_tf,
+                    policy_kwargs={"feature_extraction": "mlp"},
+                    **baselines_kw,
+                )
+                model.learn(total_timesteps=TOT_TIMESTEPS)
+                model.save(f"{main_folder}model")
+            else:
+                b_size = 64
+                steps_per_epoch = 5
+                tr_params = {'seq_len': rollout, 'num_h': 256,
+                             'steps_per_epoch': steps_per_epoch,
+                             'batch_size': b_size, 'stateful': True,
+                             'num_stps_eval': b_size*rollout*steps_per_epoch,
+                             'loss': ALL_ENVS_MINIMAL_TIMINGS[task]['loss'],
+                             'load_path': ''}
+                num_stps_per_sv = steps_per_epoch*rollout*b_size
+                num_svs = int(np.ceil(TOT_TIMESTEPS/(num_stps_per_sv)))+1
+                for ind_ep in range(num_svs):
+                    print('{:d} out of {:d}'.format(ind_ep+1, num_svs))
+                    load_path = run_env(task=task, task_params=kwargs,
+                                        main_folder=main_folder,
+                                        name=str(ind_ep), **tr_params,
+                                        sv_fig=(ind_ep % 2 == 0))
+                    tr_params['load_path'] = load_path
+            plotting.plot_rew_across_training(folder=main_folder)
 
     else:
         print("now should be done by concurrent.futures, previously")
