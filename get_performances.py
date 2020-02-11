@@ -13,7 +13,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 sys.path.append(os.path.expanduser("~/neurogym"))
-from neurogym.utils import plotting
+from neurogym.utils import plotting as pl
 # import matplotlib
 # matplotlib.use('Agg')
 
@@ -60,6 +60,41 @@ def inventory(folder, inv=None):
     return inv
 
 
+def plot_SL_rew_across_training(folder, ax, color='b', ytitle='', legend=False,
+                                zline=False):
+    files = glob.glob(folder + '/*_bhvr_data*npz')
+    if len(files) > 0:
+        files = order_by_sufix(files)
+        reward_mat = []
+        counts = []
+        trials_count = 0
+        for ind_f in range(len(files)):
+            file_data = np.load(files[ind_f], allow_pickle=True)
+            rewards = file_data['reward'][10:]
+            reward_mat.append(np.mean(rewards))
+            counts.append(trials_count+rewards.shape[0]/2)
+            trials_count += rewards.shape[0]
+        ax.plot(counts, reward_mat, '+-', color=color)
+        ax.set_xlabel('trials')
+        if not ytitle:
+            ax.set_ylabel('mean reward ({:d} trials)'.format(rewards.shape[0]))
+        else:
+            ax.set_ylabel(ytitle)
+        if legend:
+            ax.legend()
+        if zline:
+            ax.axhline(0, c='k', ls=':')
+    else:
+        print('No data in: ', folder)
+
+
+def order_by_sufix(file_list):
+    temp = [x[:x.rfind('_')] for x in file_list]
+    sfx = [int(x[x.rfind('_')+1:]) for x in temp]
+    sorted_list = [x for _, x in sorted(zip(sfx, file_list))]
+    return sorted_list
+
+
 if __name__ == '__main__':
     plt.rcParams.update({'font.size': 16})
     if len(sys.argv) > 2:
@@ -70,6 +105,7 @@ if __name__ == '__main__':
     inv = None
     for f in folders:
         inv = inventory(folder=f, inv=inv)
+    print(inv)
     colors = sns.color_palette()
     tasks = inv['tasks']
     algs = inv['algs']
@@ -93,14 +129,27 @@ if __name__ == '__main__':
             fig_count += 1
         for indalg, alg in enumerate(algs):
             pair = build_pair(alg, t)
-            for ind_inst in range(len(runs[pair])):
-                path = runs[pair][ind_inst] + '/'
-                print(path)
-                plotting.plot_rew_across_training(path, window=0.05,
-                                                  ax=ax[ax_count], ytitle=t,
-                                                  legend=(ind_inst == 0),
-                                                  zline=True,
-                                                  fkwargs={'c': colors[indalg],
-                                                           'ls': '--',
-                                                           'alpha': 0.5,
-                                                           'label': alg})
+            if pair in runs.keys():
+                for ind_inst in range(len(runs[pair])):
+                    path = runs[pair][ind_inst] + '/'
+                    print(path)
+                    c = colors[indalg]
+                    legend_flag = np.logical_and(ind_inst == 0, indalg == 3)
+                    if alg != 'SL':
+                        pl.plot_rew_across_training(path, window=0.05,
+                                                    ax=ax[ax_count],
+                                                    ytitle=t,
+                                                    legend=legend_flag,
+                                                    zline=True,
+                                                    fkwargs={'c': c,
+                                                             'ls': '--',
+                                                             'alpha': 0.5,
+                                                             'label': alg})
+                    else:
+                        plot_SL_rew_across_training(folder=path,
+                                                    ax=ax[ax_count],
+                                                    color=c, ytitle=t,
+                                                    legend=legend_flag,
+                                                    zline=True)
+        f.savefig(main_folder +
+                  '/mean_reward_across_training_'+str(fig_count)+'.png')
