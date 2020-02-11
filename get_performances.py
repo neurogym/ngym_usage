@@ -60,8 +60,8 @@ def inventory(folder, inv=None):
     return inv
 
 
-def plot_SL_rew_across_training(folder, ax, color='b', ytitle='', legend=False,
-                                zline=False):
+def plot_SL_rew_across_training(folder, ax, ytitle='', legend=False,
+                                zline=False, fkwargs={'c': 'tab:blue'}):
     files = glob.glob(folder + '/*_bhvr_data*npz')
     if len(files) > 0:
         files = order_by_sufix(files)
@@ -74,7 +74,7 @@ def plot_SL_rew_across_training(folder, ax, color='b', ytitle='', legend=False,
             reward_mat.append(np.mean(rewards))
             counts.append(trials_count+rewards.shape[0]/2)
             trials_count += rewards.shape[0]
-        ax.plot(counts, reward_mat, '+-', color=color)
+        ax.plot(counts, reward_mat, **fkwargs)
         ax.set_xlabel('trials')
         if not ytitle:
             ax.set_ylabel('mean reward ({:d} trials)'.format(rewards.shape[0]))
@@ -134,22 +134,28 @@ if __name__ == '__main__':
                     path = runs[pair][ind_inst] + '/'
                     print(path)
                     c = colors[indalg]
-                    legend_flag = np.logical_and(ind_inst == 0, indalg == 3)
+                    lbl = alg if ind_inst == 0 else ''
                     if alg != 'SL':
                         pl.plot_rew_across_training(path, window=0.05,
                                                     ax=ax[ax_count],
                                                     ytitle=t,
-                                                    legend=legend_flag,
+                                                    legend=False,
                                                     zline=True,
                                                     fkwargs={'c': c,
                                                              'ls': '--',
                                                              'alpha': 0.5,
-                                                             'label': alg})
+                                                             'label': lbl})
                     else:
                         plot_SL_rew_across_training(folder=path,
                                                     ax=ax[ax_count],
-                                                    color=c, ytitle=t,
-                                                    legend=legend_flag,
-                                                    zline=True)
-        f.savefig(main_folder +
-                  '/mean_reward_across_training_'+str(fig_count)+'.png')
+                                                    ytitle=t,
+                                                    legend=False,
+                                                    zline=True,
+                                                    fkwargs={'c': c,
+                                                             'ls': '--',
+                                                             'alpha': 0.5,
+                                                             'label': lbl,
+                                                             'marker': '+'})
+        ax[ax_count].legend()
+    f.savefig(main_folder +
+              '/mean_reward_across_training_'+str(fig_count)+'.png')
