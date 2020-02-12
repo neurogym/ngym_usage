@@ -14,11 +14,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 sys.path.append(os.path.expanduser("~/neurogym"))
 from neurogym.utils import plotting as pl
-selected_tasks = ['ContextDecisionMaking-v0', 'GoNogo-v0',
-                  'ReadySetGo-v0', 'DawTwoStep-v0', 'MatchingPenny-v0',
-                  'PerceptualDecisionMakingDelayResponse-v0',
-                  'IntervalDiscrimination-v0', 'Detection-v0',
-                  'ReachingDelayResponse-v0', 'ChangingEnvironment-v0']
+#    selected_tasks = ['ContextDecisionMaking-v0', 'GoNogo-v0',
+#                      'ReadySetGo-v0', 'DawTwoStep-v0', 'MatchingPenny-v0',
+#                      'PerceptualDecisionMakingDelayResponse-v0',
+#                      'IntervalDiscrimination-v0', 'Detection-v0',
+#                      'ReachingDelayResponse-v0', 'ChangingEnvironment-v0']
 # import matplotlib
 # matplotlib.use('Agg')
 
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     print(inv)
     colors = sns.color_palette()
     tasks = inv['tasks']
-    tasks = [x for x in tasks if x in selected_tasks]
+    # tasks = [x for x in tasks if x in selected_tasks]
     algs = inv['algs']
     runs = inv['runs']
     rows = 2
@@ -151,17 +151,17 @@ if __name__ == '__main__':
                                                              'ls': '--',
                                                              'alpha': 0.5,
                                                              'label': lbl})
-#                    else:
-#                        plot_SL_rew_across_training(folder=path,
-#                                                    ax=ax[ax_count],
-#                                                    ytitle=t,
-#                                                    legend=False,
-#                                                    zline=True,
-#                                                    fkwargs={'c': c,
-#                                                             'ls': '--',
-#                                                             'alpha': 0.5,
-#                                                             'label': lbl,
-#                                                             'marker': '+'})
+                    else:
+                        plot_SL_rew_across_training(folder=path,
+                                                    ax=ax[ax_count],
+                                                    ytitle=t,
+                                                    legend=False,
+                                                    zline=True,
+                                                    fkwargs={'c': c,
+                                                             'ls': '--',
+                                                             'alpha': 0.5,
+                                                             'label': lbl,
+                                                             'marker': '+'})
         ax[ax_count].legend()
     f.savefig(main_folder +
               '/mean_reward_across_training_'+str(fig_count)+'.png')
