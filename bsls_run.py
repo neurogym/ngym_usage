@@ -252,10 +252,10 @@ if __name__ == "__main__":
         print('Total number of steps: ', TOT_TIMESTEPS)
         if extra_wrap:
             savpath = os.path.expanduser(
-                f"~/res080220/{alg}_{task}_{seed}_{extra_wrap}/raw.npz")
+                f"/gpfs/projects/hcli64/molano/neurogym/200214/{alg}_{task}_{seed}_{extra_wrap}/raw.npz")
         else:
             savpath =\
-                os.path.expanduser(f"~/res080220/{alg}_{task}_{seed}/raw.npz")
+                os.path.expanduser(f"/gpfs/projects/hcli64/molano/neurogym/200214/{alg}_{task}_{seed}/raw.npz")
         main_folder = os.path.dirname(savpath) + "/"
         if not os.path.exists(main_folder + 'bhvr_data_all.npz'):
             print('Saving here: ', main_folder)
