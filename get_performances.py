@@ -120,7 +120,7 @@ if __name__ == '__main__':
     runs = inv['runs']
     rows = 2
     cols = 2
-    for metric_name in ['reward', 'performance']:
+    for met in ['reward', 'performance']:
         f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
         ax = ax.flatten()
         ax_count = -1
@@ -132,7 +132,7 @@ if __name__ == '__main__':
             if ax_count == rows*cols:
                 ax_count = 0
                 f.savefig(main_folder +
-                          '/mean_' + metric_name + '_across_training_' +
+                          '/mean_' + met + '_across_training_' +
                           str(fig_count)+'.png')
                 f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
                 ax = ax.flatten()
@@ -151,7 +151,7 @@ if __name__ == '__main__':
                                                         ytitle=t,
                                                         legend=False,
                                                         zline=True,
-                                                        metric=metric_name,
+                                                        metric_name=met,
                                                         fkwargs={'c': c,
                                                                  'ls': '--',
                                                                  'alpha': 0.5,
@@ -162,12 +162,12 @@ if __name__ == '__main__':
                                                      ytitle=t,
                                                      legend=False,
                                                      zline=True,
-                                                     metric=metric_name,
+                                                     metric_name=met,
                                                      fkwargs={'c': c,
                                                               'ls': '--',
                                                               'alpha': 0.5,
                                                               'label': lbl,
                                                               'marker': '+'})
             ax[ax_count].legend()
-        f.savefig(main_folder + '/mean_' + metric_name + '_across_training_' +
+        f.savefig(main_folder + '/mean_' + met + '_across_training_' +
                   str(fig_count)+'.png')
