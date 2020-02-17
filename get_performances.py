@@ -103,11 +103,15 @@ def order_by_sufix(file_list):
 
 
 if __name__ == '__main__':
+    plt.close('all')
     selected_exps = ['200214']
     plt.rcParams.update({'font.size': 16})
-    if len(sys.argv) > 2:
+    if len(sys.argv) == 1:
+        main_folder = '/home/molano/ngym_usage/results/from_bsc/'
+    elif len(sys.argv) == 2:
+        main_folder = sys.argv[1]
+    else:
         raise ValueError("usage: get_performances.py [folder]")
-    main_folder = sys.argv[1]
     folders = glob.glob(main_folder + '/*')
     inv = None
     for f in folders:
@@ -120,7 +124,6 @@ if __name__ == '__main__':
     runs = inv['runs']
     rows = 1
     cols = 2
-    ax_count = -1
     fig_count = 0
     for indt, t in enumerate(tasks):
         print('xxxxxxxx')
@@ -159,5 +162,7 @@ if __name__ == '__main__':
                                                               'alpha': 1,
                                                               'label': lbl,
                                                               'marker': '+'})
-            ax[ax_count].legend()
+            ax[ind_met].legend()
+            ax[ind_met].set_title(met)
         f.savefig(main_folder + '/means_across_training_' + t + '.png')
+        plt.close(f)
