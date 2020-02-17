@@ -103,40 +103,31 @@ def order_by_sufix(file_list):
 
 
 if __name__ == '__main__':
+    selected_exps = ['200214']
     plt.rcParams.update({'font.size': 16})
     if len(sys.argv) > 2:
         raise ValueError("usage: get_performances.py [folder]")
     main_folder = sys.argv[1]
     folders = glob.glob(main_folder + '/*')
-    print(folders)
     inv = None
     for f in folders:
-        inv = inventory(folder=f, inv=inv)
-    print(inv)
+        if ntpath.basename(f) in selected_exps:
+            inv = inventory(folder=f, inv=inv)
     colors = sns.color_palette()
     tasks = inv['tasks']
     # tasks = [x for x in tasks if x in selected_tasks]
     algs = inv['algs']
     runs = inv['runs']
-    rows = 2
+    rows = 1
     cols = 2
-    for met in ['reward', 'performance']:
+    ax_count = -1
+    fig_count = 0
+    for indt, t in enumerate(tasks):
+        print('xxxxxxxx')
+        print(t)
         f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
         ax = ax.flatten()
-        ax_count = -1
-        fig_count = 0
-        for indt, t in enumerate(tasks):
-            print('xxxxxxxx')
-            print(t)
-            ax_count += 1
-            if ax_count == rows*cols:
-                ax_count = 0
-                f.savefig(main_folder +
-                          '/mean_' + met + '_across_training_' +
-                          str(fig_count)+'.png')
-                f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
-                ax = ax.flatten()
-                fig_count += 1
+        for ind_met, met in enumerate(['reward', 'performance']):
             for indalg, alg in enumerate(algs):
                 pair = build_pair(alg, t)
                 if pair in runs.keys():
@@ -147,27 +138,26 @@ if __name__ == '__main__':
                         lbl = alg if ind_inst == 0 else ''
                         if alg != 'SL':
                             pl.plot_rew_across_training(path, window=0.05,
-                                                        ax=ax[ax_count],
+                                                        ax=ax[ind_met],
                                                         ytitle=t,
                                                         legend=False,
                                                         zline=True,
                                                         metric_name=met,
                                                         fkwargs={'c': c,
                                                                  'ls': '--',
-                                                                 'alpha': 0.5,
+                                                                 'alpha': 1,
                                                                  'label': lbl})
                         else:
                             plot_SL_rew_across_train(folder=path,
-                                                     ax=ax[ax_count],
+                                                     ax=ax[ind_met],
                                                      ytitle=t,
                                                      legend=False,
                                                      zline=True,
                                                      metric_name=met,
                                                      fkwargs={'c': c,
                                                               'ls': '--',
-                                                              'alpha': 0.5,
+                                                              'alpha': 1,
                                                               'label': lbl,
                                                               'marker': '+'})
             ax[ax_count].legend()
-        f.savefig(main_folder + '/mean_' + met + '_across_training_' +
-                  str(fig_count)+'.png')
+        f.savefig(main_folder + '/means_across_training_' + t + '.png')
