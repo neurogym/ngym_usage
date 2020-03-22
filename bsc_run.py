@@ -146,7 +146,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                      policy_kwargs={"feature_extraction": "mlp"},
                      **alg_kwargs)
         model.learn(total_timesteps=num_timesteps)
-        model.save(f"{main_folder}model")
+        model.save(f"{folder}model")
         plotting.plot_rew_across_training(folder=folder)
         # TODO: save parameters in instance_folder
 
