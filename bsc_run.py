@@ -127,7 +127,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         rollout, num_trials, folder, n_cpu):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if not os.path.exists(instance_folder + 'bhvr_data_all.npz'):
+    if not os.path.exists(folder + 'bhvr_data_all.npz'):
         if alg == "A2C":
             from stable_baselines import A2C as algo
         elif alg == "ACER":
