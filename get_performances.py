@@ -5,15 +5,12 @@ Created on Mon Feb 10 09:32:02 2020
 
 @author: molano
 """
-import os
 import sys
 import glob
 import ntpath
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-sys.path.append(os.path.expanduser("~/neurogym"))
-from neurogym.utils import plotting as pl
 #    selected_tasks = ['ContextDecisionMaking-v0', 'GoNogo-v0',
 #                      'ReadySetGo-v0', 'DawTwoStep-v0', 'MatchingPenny-v0',
 #                      'PerceptualDecisionMakingDelayResponse-v0',
@@ -65,12 +62,44 @@ def inventory(folder, inv=None):
     return inv
 
 
+def plot_RL_rew_across_training(folder, window=500, ax=None,
+                                fkwargs={'c': 'tab:blue'}, ytitle='',
+                                legend=False, zline=False, metric_name='reward'):
+    data = put_together_files(folder)
+    if data:
+        sv_fig = False
+        if ax is None:
+            sv_fig = True
+            f, ax = plt.subplots(figsize=(8, 8))
+        metric = data[metric_name]
+        if isinstance(window, float):
+            if window < 1.0:
+                window = int(metric.size * window)
+        mean_metric = np.convolve(metric, np.ones((window,))/window,
+                                  mode='valid')
+        ax.plot(mean_metric, **fkwargs)  # add color, label etc.
+        ax.set_xlabel('trials')
+        if not ytitle:
+            ax.set_ylabel('mean ' + metric_name + ' (running window' +
+                          ' of {:d} trials)'.format(window))
+        else:
+            ax.set_ylabel(ytitle)
+        if legend:
+            ax.legend()
+        if zline:
+            ax.axhline(0, c='k', ls=':')
+        if sv_fig:
+            f.savefig(folder + '/mean_' + metric_name + '_across_training.png')
+    else:
+        print('No data in: ', folder)
+
+
 def plot_SL_rew_across_train(folder, ax, ytitle='', legend=False,
                              zline=False, fkwargs={'c': 'tab:blue'},
                              metric_name='reward'):
     files = glob.glob(folder + '/*_bhvr_data*npz')
     if len(files) > 0:
-        files = order_by_sufix(files)
+        files = order_by_sufix_SL(files)
         metric_mat = []
         counts = []
         trials_count = 0
@@ -95,7 +124,30 @@ def plot_SL_rew_across_train(folder, ax, ytitle='', legend=False,
         print('No data in: ', folder)
 
 
-def order_by_sufix(file_list):
+def put_together_files(folder):
+    files = glob.glob(folder + '/*_bhvr_data*npz')
+    data = {}
+    if len(files) > 0:
+        files = order_by_sufix_RL(files)
+        file_data = np.load(files[0], allow_pickle=True)
+        for key in file_data.keys():
+            data[key] = file_data[key]
+
+        for ind_f in range(1, len(files)):
+            file_data = np.load(files[ind_f], allow_pickle=True)
+            for key in file_data.keys():
+                data[key] = np.concatenate((data[key], file_data[key]))
+        np.savez(folder + '/bhvr_data_all.npz', **data)
+    return data
+
+
+def order_by_sufix_RL(file_list):
+    sfx = [int(x[x.rfind('_')+1:x.rfind('.')]) for x in file_list]
+    sorted_list = [x for _, x in sorted(zip(sfx, file_list))]
+    return sorted_list
+
+
+def order_by_sufix_SL(file_list):
     temp = [x[:x.rfind('_')] for x in file_list]
     sfx = [int(x[x.rfind('_')+1:]) for x in temp]
     sorted_list = [x for _, x in sorted(zip(sfx, file_list))]
@@ -103,15 +155,11 @@ def order_by_sufix(file_list):
 
 
 if __name__ == '__main__':
-    plt.close('all')
     selected_exps = ['200214']
     plt.rcParams.update({'font.size': 16})
-    if len(sys.argv) == 1:
-        main_folder = '/home/molano/ngym_usage/results/from_bsc/'
-    elif len(sys.argv) == 2:
-        main_folder = sys.argv[1]
-    else:
+    if len(sys.argv) > 2:
         raise ValueError("usage: get_performances.py [folder]")
+    main_folder = sys.argv[1]
     folders = glob.glob(main_folder + '/*')
     inv = None
     for f in folders:
@@ -124,6 +172,7 @@ if __name__ == '__main__':
     runs = inv['runs']
     rows = 1
     cols = 2
+    ax_count = -1
     fig_count = 0
     for indt, t in enumerate(tasks):
         print('xxxxxxxx')
@@ -140,7 +189,7 @@ if __name__ == '__main__':
                         c = colors[indalg]
                         lbl = alg if ind_inst == 0 else ''
                         if alg != 'SL':
-                            pl.plot_rew_across_training(path, window=0.05,
+                            plot_RL_rew_across_training(path, window=0.05,
                                                         ax=ax[ind_met],
                                                         ytitle=t,
                                                         legend=False,
@@ -162,7 +211,5 @@ if __name__ == '__main__':
                                                               'alpha': 1,
                                                               'label': lbl,
                                                               'marker': '+'})
-            ax[ind_met].legend()
-            ax[ind_met].set_title(met)
+            ax[ax_count].legend()
         f.savefig(main_folder + '/means_across_training_' + t + '.png')
-        plt.close(f)
