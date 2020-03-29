@@ -20,7 +20,7 @@ import gym
 from stable_baselines.common.vec_env import DummyVecEnv
 
 
-def custom_plot_env(modelpath, num_steps_env=200):
+def custom_plot_env(modelpath, num_steps=200):
     root_str = os.path.split(modelpath)[0].split("/")[-1]
     algo = root_str.split("_")[0]
     task = root_str.split("_")[1]
@@ -33,7 +33,7 @@ def custom_plot_env(modelpath, num_steps_env=200):
     model = module.load(modelpath)
     plot_env(
         env,
-        num_steps_env=num_steps_env,
+        num_steps=num_steps,
         model=model,
         name=f"{algo} on {task}",
         fig_kwargs={"figsize": (10, 12)},

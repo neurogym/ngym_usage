@@ -67,7 +67,7 @@ if __name__ == '__main__':
             env = gym.make(env_name)
             try:
                 model = randomAgent(env=env, policy=[.9])
-                data = plot_env(env, num_steps_env=n_stps, model=model,
+                data = plot_env(env, num_steps=n_stps, model=model,
                                 show_fig=False)
                 for par, f, it in zip(parameters, funcs, items):
                     df.loc[df.tasks == env_name,

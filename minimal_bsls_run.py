@@ -32,5 +32,5 @@ model.learn(total_timesteps=100000, log_interval=10000)
 env.close()
 env = gym.make(task)
 env = DummyVecEnv([lambda: env])
-data = tasks_info.plot_struct(env, num_steps_env=1000, n_stps_plt=200,
+data = tasks_info.plot_struct(env, num_steps=1000, n_stps_plt=200,
                               model=model, name='RDM')

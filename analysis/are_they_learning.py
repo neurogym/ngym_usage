@@ -883,7 +883,7 @@ from stable_baselines.common.vec_env import DummyVecEnv
 
 
 
-def custom_plot_env(modelpath, num_steps_env=200):
+def custom_plot_env(modelpath, num_steps=200):
     root_str = os.path.split(modelpath)[0].split('/')[-1]
     algo = root_str.split('_')[0]
     task = root_str.split('_')[1]
@@ -894,7 +894,7 @@ def custom_plot_env(modelpath, num_steps_env=200):
     pkg = importlib.import_module('stable_baselines') #+algo) 
     module = getattr(pkg, algo)
     model = module.load(modelpath)
-    plot_env(env, num_steps_env=num_steps_env, model=model, name=f'{algo} on {task}', fig_kwargs={'figsize':(10, 12)})
+    plot_env(env, num_steps=num_steps, model=model, name=f'{algo} on {task}', fig_kwargs={'figsize':(10, 12)})
     
 
 
@@ -908,7 +908,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 files = sorted([str(x) for x in Path('/home/jordi/Repos/pkgs/data/3rd/').glob('*0/model.zip')])
 for f in files:
-    custom_plot_env(f, num_steps_env=100)
+    custom_plot_env(f, num_steps=100)
 
 
 # In[26]:
@@ -937,7 +937,7 @@ get_ipython().system('pwd')
 # In[4]:
 
 
-custom_plot_env('/home/jordi/Repos/pkgs/trash/A2C_DelayedMatchCategory-v0_0/model.zip', num_steps_env=100)
+custom_plot_env('/home/jordi/Repos/pkgs/trash/A2C_DelayedMatchCategory-v0_0/model.zip', num_steps=100)
 
 
 # In[14]:
@@ -1003,7 +1003,7 @@ import importlib
 
 from neurogym.custom_timings import ALL_ENVS_MINIMAL_TIMINGS
 
-def custom_plot_env(modelpath, num_steps_env=100):
+def custom_plot_env(modelpath, num_steps=100):
     root_str = os.path.split(modelpath)[0].split('/')[-1]
     algo = root_str.split('_')[0]
     task = root_str.split('_')[1]
@@ -1017,7 +1017,7 @@ def custom_plot_env(modelpath, num_steps_env=100):
     model = module(LstmPolicy, env, verbose=0, n_steps=20, n_cpu_tf_sess=1, policy_kwargs={'feature_extraction':'mlp'}) 
     ###
     model = module.load(modelpath)
-    plot_env(env, num_steps_env=num_steps_env, model=model, name=f'{algo} on {task}', fig_kwargs={'figsize':(10, 12)})
+    plot_env(env, num_steps=num_steps, model=model, name=f'{algo} on {task}', fig_kwargs={'figsize':(10, 12)})
 
 
 # In[4]:
