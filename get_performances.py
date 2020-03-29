@@ -223,15 +223,19 @@ if __name__ == '__main__':
                                                                'marker': '+'})
                         if len(metr) > 0:
                             metr_mat.append(metr)
-                min_dur = np.min([len(x) for x in metr_mat])
-                metr_mat = [x[:min_dur] for x in metr_mat]
-                metr_mat = np.array(metr_mat)
-                print(metr_mat.shape)
-                c = colors[indalg]
-                xs = counts if alg == 'SL' else np.arange(metr_mat.shape[1])/1000
-                ax[ind_met].plot(xs, np.nanmean(metr_mat, axis=0), color=c, lw=2,
-                                 label=alg)
-                ax[ind_met].legend()
+                if len(metr_mat) > 0:
+                    min_dur = np.min([len(x) for x in metr_mat])
+                    metr_mat = [x[:min_dur] for x in metr_mat]
+                    metr_mat = np.array(metr_mat)
+                    c = colors[indalg]
+                    sh = metr_mat.shape[1]
+                    if alg == 'SL':
+                        xs = counts[:metr_mat.shape[1]]
+                    else:
+                        xs = np.arange(sh)/1000
+                    ax[ind_met].plot(xs, np.nanmean(metr_mat, axis=0), color=c,
+                                     lw=2, label=alg)
+                    ax[ind_met].legend()
         for x in ax:
             x.spines['right'].set_visible(False)
             x.spines['top'].set_visible(False)
