@@ -11,6 +11,11 @@ import ntpath
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
+rcParams['font.family'] = 'sans-serif'
+rcParams['font.sans-serif'] = ['Arial']
+rcParams['font.size'] = 7
+
 #    selected_tasks = ['ContextDecisionMaking-v0', 'GoNogo-v0',
 #                      'ReadySetGo-v0', 'DawTwoStep-v0', 'MatchingPenny-v0',
 #                      'PerceptualDecisionMakingDelayResponse-v0',
@@ -62,10 +67,11 @@ def inventory(folder, inv=None):
     return inv
 
 
-def plot_RL_rew_across_training(folder, window=500, ax=None,
-                                fkwargs={'c': 'tab:blue'}, ytitle='',
-                                legend=False, zline=False, metric_name='reward'):
+def plot_RL_rew_acr_train(folder, window=500, ax=None,
+                          fkwargs={'c': 'tab:blue'}, ytitle='',
+                          legend=False, zline=False, metric_name='reward'):
     data = put_together_files(folder)
+    mean_metric = []
     if data:
         sv_fig = False
         if ax is None:
@@ -77,13 +83,14 @@ def plot_RL_rew_across_training(folder, window=500, ax=None,
                 window = int(metric.size * window)
         mean_metric = np.convolve(metric, np.ones((window,))/window,
                                   mode='valid')
-        ax.plot(mean_metric, **fkwargs)  # add color, label etc.
-        ax.set_xlabel('trials')
+        ax.plot(np.arange(len(mean_metric))/1000, mean_metric, **fkwargs)
+        ax.set_xlabel('Trials')
         if not ytitle:
-            ax.set_ylabel('mean ' + metric_name + ' (running window' +
-                          ' of {:d} trials)'.format(window))
+            string = 'mean ' + metric_name + ' (running window' +\
+                ' of {:d} trials)'.format(window)
+            ax.set_ylabel(string.capitalize())
         else:
-            ax.set_ylabel(ytitle)
+            ax.set_ylabel(ytitle.capitalize())
         if legend:
             ax.legend()
         if zline:
@@ -92,36 +99,39 @@ def plot_RL_rew_across_training(folder, window=500, ax=None,
             f.savefig(folder + '/mean_' + metric_name + '_across_training.png')
     else:
         print('No data in: ', folder)
+    return mean_metric
 
 
-def plot_SL_rew_across_train(folder, ax, ytitle='', legend=False,
-                             zline=False, fkwargs={'c': 'tab:blue'},
-                             metric_name='reward'):
+def plot_SL_rew_acr_train(folder, ax, ytitle='', legend=False,
+                          zline=False, fkwargs={'c': 'tab:blue'},
+                          metric_name='reward'):
     files = glob.glob(folder + '/*_bhvr_data*npz')
+    metric_mat = []
+    counts = []
     if len(files) > 0:
         files = order_by_sufix_SL(files)
-        metric_mat = []
-        counts = []
         trials_count = 0
         for ind_f in range(len(files)):
             file_data = np.load(files[ind_f], allow_pickle=True)
             metric = file_data[metric_name][10:]
             metric_mat.append(np.mean(metric))
-            counts.append(trials_count+metric.shape[0]/2)
+            counts.append((trials_count+metric.shape[0]/2)/1000)
             trials_count += metric.shape[0]
         ax.plot(counts, metric_mat, **fkwargs)
-        ax.set_xlabel('trials')
+        ax.set_xlabel('Trials')
         if not ytitle:
-            ax.set_ylabel('mean ' + metric_name +
-                          '({:d} trials)'.format(metric.shape[0]))
+            string = 'mean ' + metric_name +\
+                '({:d} trials)'.format(metric.shape[0])
+            ax.set_ylabel(string.capitalize())
         else:
-            ax.set_ylabel(ytitle)
+            ax.set_ylabel(ytitle.capitalize())
         if legend:
             ax.legend()
         if zline:
             ax.axhline(0, c='k', ls=':')
     else:
         print('No data in: ', folder)
+    return metric_mat, counts
 
 
 def put_together_files(folder):
@@ -179,8 +189,9 @@ if __name__ == '__main__':
         print(t)
         f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
         ax = ax.flatten()
-        for ind_met, met in enumerate(['reward', 'performance']):
-            for indalg, alg in enumerate(algs):
+        for indalg, alg in enumerate(sorted(algs)):
+            for ind_met, met in enumerate(['reward', 'performance']):
+                metr_mat = []
                 pair = build_pair(alg, t)
                 if pair in runs.keys():
                     for ind_inst in range(len(runs[pair])):
@@ -189,27 +200,39 @@ if __name__ == '__main__':
                         c = colors[indalg]
                         lbl = alg if ind_inst == 0 else ''
                         if alg != 'SL':
-                            plot_RL_rew_across_training(path, window=0.05,
-                                                        ax=ax[ind_met],
-                                                        ytitle=t,
-                                                        legend=False,
-                                                        zline=True,
-                                                        metric_name=met,
-                                                        fkwargs={'c': c,
-                                                                 'ls': '--',
-                                                                 'alpha': 1,
-                                                                 'label': lbl})
+                            metr = plot_RL_rew_acr_train(path, window=0.05,
+                                                         ax=ax[ind_met],
+                                                         ytitle=t,
+                                                         legend=False,
+                                                         zline=True,
+                                                         metric_name=met,
+                                                         fkwargs={'c': c,
+                                                                  'ls': '-',
+                                                                  'alpha': 0.5,
+                                                                  'label': ''})
                         else:
-                            plot_SL_rew_across_train(folder=path,
-                                                     ax=ax[ind_met],
-                                                     ytitle=t,
-                                                     legend=False,
-                                                     zline=True,
-                                                     metric_name=met,
-                                                     fkwargs={'c': c,
-                                                              'ls': '--',
-                                                              'alpha': 1,
-                                                              'label': lbl,
-                                                              'marker': '+'})
-            ax[ax_count].legend()
+                            metr, counts =\
+                                plot_SL_rew_acr_train(folder=path,
+                                                      ax=ax[ind_met], ytitle=t,
+                                                      legend=False, zline=True,
+                                                      metric_name=met,
+                                                      fkwargs={'c': c,
+                                                               'ls': '--',
+                                                               'alpha': 0.5,
+                                                               'label': '',
+                                                               'marker': '+'})
+                        if len(metr) > 0:
+                            metr_mat.append(metr)
+                min_dur = np.min([len(x) for x in metr_mat])
+                metr_mat = [x[:min_dur] for x in metr_mat]
+                metr_mat = np.array(metr_mat)
+                print(metr_mat.shape)
+                c = colors[indalg]
+                xs = counts if alg == 'SL' else np.arange(metr_mat.shape[1])/1000
+                ax[ind_met].plot(xs, np.nanmean(metr_mat, axis=0), color=c, lw=2,
+                                 label=alg)
+                ax[ind_met].legend()
+        for x in ax:
+            x.spines['right'].set_visible(False)
+            x.spines['top'].set_visible(False)
         f.savefig(main_folder + '/means_across_training_' + t + '.png')
