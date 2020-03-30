@@ -68,7 +68,7 @@ def inventory(folder, inv=None):
 
 
 def plot_RL_rew_acr_train(folder, window=500, ax=None,
-                          fkwargs={'c': 'tab:blue'}, ytitle='',
+                          fkwargs={'c': 'tab:blue'}, ylabel='',
                           legend=False, zline=False, metric_name='reward'):
     data = put_together_files(folder)
     mean_metric = []
@@ -84,13 +84,13 @@ def plot_RL_rew_acr_train(folder, window=500, ax=None,
         mean_metric = np.convolve(metric, np.ones((window,))/window,
                                   mode='valid')
         ax.plot(np.arange(len(mean_metric))/1000, mean_metric, **fkwargs)
-        ax.set_xlabel('Trials')
-        if not ytitle:
+        ax.set_xlabel('Trials (x1000)')
+        if not ylabel:
             string = 'mean ' + metric_name + ' (running window' +\
                 ' of {:d} trials)'.format(window)
             ax.set_ylabel(string.capitalize())
         else:
-            ax.set_ylabel(ytitle.capitalize())
+            ax.set_ylabel(ylabel.capitalize())
         if legend:
             ax.legend()
         if zline:
@@ -102,7 +102,7 @@ def plot_RL_rew_acr_train(folder, window=500, ax=None,
     return mean_metric
 
 
-def plot_SL_rew_acr_train(folder, ax, ytitle='', legend=False,
+def plot_SL_rew_acr_train(folder, ax, ylabel='', legend=False,
                           zline=False, fkwargs={'c': 'tab:blue'},
                           metric_name='reward'):
     files = glob.glob(folder + '/*_bhvr_data*npz')
@@ -118,13 +118,13 @@ def plot_SL_rew_acr_train(folder, ax, ytitle='', legend=False,
             counts.append((trials_count+metric.shape[0]/2)/1000)
             trials_count += metric.shape[0]
         ax.plot(counts, metric_mat, **fkwargs)
-        ax.set_xlabel('Trials')
-        if not ytitle:
+        ax.set_xlabel('Trials (x1000)')
+        if not ylabel:
             string = 'mean ' + metric_name +\
                 '({:d} trials)'.format(metric.shape[0])
             ax.set_ylabel(string.capitalize())
         else:
-            ax.set_ylabel(ytitle.capitalize())
+            ax.set_ylabel(ylabel.capitalize())
         if legend:
             ax.legend()
         if zline:
@@ -166,7 +166,7 @@ def order_by_sufix_SL(file_list):
 
 if __name__ == '__main__':
     selected_exps = ['200214']
-    plt.rcParams.update({'font.size': 16})
+    # plt.rcParams.update({'font.size': 16})
     if len(sys.argv) > 2:
         raise ValueError("usage: get_performances.py [folder]")
     main_folder = sys.argv[1]
@@ -187,10 +187,11 @@ if __name__ == '__main__':
     for indt, t in enumerate(tasks):
         print('xxxxxxxx')
         print(t)
-        f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 20))
+        f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(8, 4))
         ax = ax.flatten()
         for indalg, alg in enumerate(sorted(algs)):
             for ind_met, met in enumerate(['reward', 'performance']):
+                ylabel = 'Average ' + met
                 metr_mat = []
                 pair = build_pair(alg, t)
                 if pair in runs.keys():
@@ -202,25 +203,27 @@ if __name__ == '__main__':
                         if alg != 'SL':
                             metr = plot_RL_rew_acr_train(path, window=0.05,
                                                          ax=ax[ind_met],
-                                                         ytitle=t,
+                                                         ylabel=ylabel,
                                                          legend=False,
                                                          zline=True,
                                                          metric_name=met,
                                                          fkwargs={'c': c,
                                                                   'ls': '-',
-                                                                  'alpha': 0.5,
-                                                                  'label': ''})
+                                                                  'alpha': 0.2,
+                                                                  'label': '',
+                                                                  'lw': 0.5})
                         else:
                             metr, counts =\
                                 plot_SL_rew_acr_train(folder=path,
-                                                      ax=ax[ind_met], ytitle=t,
+                                                      ax=ax[ind_met],
+                                                      ylabel=ylabel,
                                                       legend=False, zline=True,
                                                       metric_name=met,
                                                       fkwargs={'c': c,
                                                                'ls': '--',
-                                                               'alpha': 0.5,
+                                                               'alpha': 0.2,
                                                                'label': '',
-                                                               'marker': '+'})
+                                                               'lw': 0.5})
                         if len(metr) > 0:
                             metr_mat.append(metr)
                 if len(metr_mat) > 0:
@@ -234,9 +237,20 @@ if __name__ == '__main__':
                     else:
                         xs = np.arange(sh)/1000
                     ax[ind_met].plot(xs, np.nanmean(metr_mat, axis=0), color=c,
-                                     lw=2, label=alg)
-                    ax[ind_met].legend()
+                                     lw=1, label=alg)
+        ax[0].legend()
+        ax[1].set_ylim([0, 1])
         for x in ax:
+            xlim = x.get_xlim()
+            x.set_xlim([0, xlim[1]])
+            # add xK
+            # xticks = x.get_xticks().tolist()
+            # xticks.append(xticks[-1]+(xticks[1]-xticks[0])/1.5)
+            # x.set_xticks(xticks)
+            # xticks = [str(x) for x in xticks]
+            # xticks[-1] = 'x1000'
+            # x.set_xticklabels(xticks)
             x.spines['right'].set_visible(False)
             x.spines['top'].set_visible(False)
-        f.savefig(main_folder + '/means_across_training_' + t + '.png')
+        plt.suptitle(t)
+        f.savefig(main_folder + '/means_across_training_' + t + '.png', dpi=400)
