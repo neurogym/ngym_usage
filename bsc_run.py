@@ -79,6 +79,9 @@ def arg_parser():
     parser.add_argument('--keep_days',
                         help='minimum number of sessions to spend on a stage',
                         type=int, default=None)
+    parser.add_argument('--stages',
+                        help='stages used for training',
+                        type=int, nargs='+', default=None)
 
     # trial_hist wrapper parameters
     parser.add_argument('--probs', help='prob of main transition in the ' +
