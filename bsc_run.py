@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-test training according to params (model, task, seed, trials, rollout)
+Created on Wed Apr  8 07:26:31 2020
+
+@author: manuel
+
+/home/.../shaping_run.py --folder test  --seed 4 --alg A2C --stages 3 4
+
 """
 import os
 from ops.utils import get_name_and_command_from_dict as gncfd
@@ -155,9 +160,9 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
 
 
 if __name__ == "__main__":
-    main_folder = '/gpfs/projects/hcli64/molano/priors/'
+    # main_folder = '/gpfs/projects/hcli64/molano/priors/'
     # main_folder = '/home/molano/priors/codes/experiments_parameters/'
-    # main_folder = '/home/manuel/priors_analysis/results/'
+    main_folder = '/home/manuel/CV-Learning/results/'
     # get params from call
     n_arg_parser = arg_parser()
     n_args, unknown_args = n_arg_parser.parse_known_args(sys.argv)
@@ -180,10 +185,13 @@ if __name__ == "__main__":
                                                   main_folder+"/params.py")
     params = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(params)
+    # update general params
     gen_params = params.general_params
     update_dict(gen_params, n_args)
+    # update task params
     task_params = params.task_kwargs[gen_params['task']]
     update_dict(task_params, n_args)
+    # get params
     task = gen_params['task']
     alg = gen_params['alg']
     alg_kwargs = params.algs[alg]
