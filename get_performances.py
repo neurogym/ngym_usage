@@ -25,15 +25,14 @@ rcParams['font.size'] = 7
 # matplotlib.use('Agg')
 
 
-def get_alg_task(file):
-    spl = file.split('_')
-    if spl[-1].find('.') == -1:
-        alg = spl[0]
-        task = spl[1]
-    else:
-        alg = None
-        task = None
-    return alg, task
+def get_tag(name, tag):
+    indx = name.find(tag)
+    assert indx != -1, 'Tag not found in name'
+    value = name[indx+len(tag)+1:]
+    indx = value.find('_')
+    if indx != -1:
+        value = value[:value.find('_')]
+    return value
 
 
 def add_to_list(item, l):
@@ -47,14 +46,18 @@ def add_to_list(item, l):
 def build_pair(alg, task):
     return alg + ' / ' + task
 
+# TODO: this function should be made more general, so it allows processing
+# experiments in which the parameters explored are not 'alg' and 'task'
+
 
 def inventory(folder, inv=None):
     # inventory
-    files = glob.glob(folder + '/*')
+    files = glob.glob(folder + '/*alg*task*')
     if inv is None:
         inv = {'algs': [], 'tasks': [], 'runs': {}}
     for ind_f, file in enumerate(files):
-        alg, task = get_alg_task(ntpath.basename(file))
+        alg = get_tag(ntpath.basename(file), 'alg')
+        task = get_tag(ntpath.basename(file), 'task')
         if alg is not None:
             inv['algs'], _ = add_to_list(alg, inv['algs'])
             inv['tasks'], _ = add_to_list(task, inv['tasks'])
@@ -165,16 +168,12 @@ def order_by_sufix_SL(file_list):
 
 
 if __name__ == '__main__':
-    selected_exps = ['200214']
     # plt.rcParams.update({'font.size': 16})
     if len(sys.argv) > 2:
         raise ValueError("usage: get_performances.py [folder]")
     main_folder = sys.argv[1]
-    folders = glob.glob(main_folder + '/*')
     inv = None
-    for f in folders:
-        if ntpath.basename(f) in selected_exps:
-            inv = inventory(folder=f, inv=inv)
+    inv = inventory(folder=main_folder, inv=inv)
     colors = sns.color_palette()
     tasks = inv['tasks']
     # tasks = [x for x in tasks if x in selected_tasks]
@@ -189,6 +188,7 @@ if __name__ == '__main__':
         print(t)
         f, ax = plt.subplots(nrows=rows, ncols=cols, figsize=(8, 4))
         ax = ax.flatten()
+        # TODO: collapse all for loops into one
         for indalg, alg in enumerate(sorted(algs)):
             for ind_met, met in enumerate(['reward', 'performance']):
                 ylabel = 'Average ' + met
@@ -223,6 +223,7 @@ if __name__ == '__main__':
                                                                'ls': '--',
                                                                'alpha': 0.2,
                                                                'label': '',
+                                                               'marker': '+',
                                                                'lw': 0.5})
                         if len(metr) > 0:
                             metr_mat.append(metr)
