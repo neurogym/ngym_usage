@@ -60,7 +60,7 @@ def gen_file(exp, n_cpu, run_time, **kwargs):
         f.write(f'#SBATCH --cpus-per-task={n_cpu}\n')
         f.write(f'#SBATCH --time={run_time}:00:00\n')
         f.write(commontxt)
-        f.write(f'/home/hcli64/hcli64745/shaping_run.py --folder {exp} {cmd}')
+        f.write(f'{workdir}bsc_run.py --folder {exp} {cmd}')
 
 
 if __name__ == '__main__':

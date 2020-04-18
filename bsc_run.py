@@ -33,7 +33,7 @@ def test_env(env, kwargs, num_steps=100):
     env = gym.make(env, **kwargs)
     env.reset()
     for stp in range(num_steps):
-        action = env.action_space.sample()
+        action = 0
         state, rew, done, info = env.step(action)
         if done:
             env.reset()
@@ -160,9 +160,9 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
 
 
 if __name__ == "__main__":
-    # main_folder = '/gpfs/projects/hcli64/molano/priors/'
+    main_folder = '/gpfs/projects/hcli64/molano/neurogym/20200417/'
     # main_folder = '/home/molano/priors/codes/experiments_parameters/'
-    main_folder = '/home/manuel/CV-Learning/results/'
+    # main_folder = '/home/manuel/ngym_usage/'
     # get params from call
     n_arg_parser = arg_parser()
     n_args, unknown_args = n_arg_parser.parse_known_args(sys.argv)
