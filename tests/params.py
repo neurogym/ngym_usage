@@ -46,7 +46,7 @@ explore = {'seed': np.arange(1),
 # other
 experiment = 'RL_training'
 general_params = {'seed': None, 'alg': None,
-                  'task': None,
+                  'task': None, 'n_lstm': 256,
                   'rollout': 40, 'num_trials': 1000000, 'num_cpu': 20,
                   'run_time': 20}
 #

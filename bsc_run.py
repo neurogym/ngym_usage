@@ -63,6 +63,9 @@ def arg_parser():
     parser.add_argument('--num_trials',
                         help='number of trials to train', type=int,
                         default=None)
+    parser.add_argument('--n_lstm',
+                        help='number of units in the network',
+                        type=int, default=None)
     parser.add_argument('--rollout',
                         help='rollout used to train the network',
                         type=int, default=None)
@@ -132,7 +135,7 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
 
 
 def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
-        rollout, num_trials, folder, n_cpu):
+        rollout, num_trials, folder, n_cpu, n_lstm):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     if not os.path.exists(folder + 'bhvr_data_all.npz'):
@@ -151,7 +154,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                              for i in range(n_cpu)])
         model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
                      n_cpu_tf_sess=n_cpu,
-                     policy_kwargs={"feature_extraction": "mlp"},
+                     policy_kwargs={"feature_extraction": "mlp",
+                                    "n_lstm": n_lstm},
                      **alg_kwargs)
         model.learn(total_timesteps=num_timesteps)
         model.save(f"{folder}model")
@@ -199,7 +203,9 @@ if __name__ == "__main__":
     num_trials = int(gen_params['num_trials'])
     rollout = int(gen_params['rollout'])
     num_cpu = int(gen_params['num_cpu'])
+    n_lstm = int(gen_params['n_lstm'])
     task_kwargs = params.task_kwargs[gen_params['task']]
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
-        num_trials=num_trials, folder=instance_folder, n_cpu=num_cpu)
+        num_trials=num_trials, folder=instance_folder, n_cpu=num_cpu,
+        n_lstm=n_lstm)
