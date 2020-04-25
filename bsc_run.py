@@ -12,6 +12,7 @@ import os
 from ops.utils import get_name_and_command_from_dict as gncfd
 from ops.utils import rest_arg_parser
 import sys
+import numpy as np
 # import numpy as np
 import importlib
 import argparse
@@ -73,12 +74,12 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--num_cpu', help='number of threads',
                         type=int, default=None)
+    parser.add_argument('--n_ch', help='number of choices',
+                        type=int, default=None)
 
     # n-alternative task params
     parser.add_argument('--stim_scale', help='stimulus evidence',
                         type=float, default=None)
-    parser.add_argument('--n_ch', help='number of choices',
-                        type=int, default=None)
 
     # CV-learning task
     parser.add_argument('--th_stage',
@@ -90,9 +91,6 @@ def arg_parser():
     parser.add_argument('--stages',
                         help='stages used for training',
                         type=int, nargs='+', default=None)
-    parser.add_argument('--n_ch',
-                        help='number of stimuli and actions',
-                        type=int, default=None)
 
     # trial_hist wrapper parameters
     parser.add_argument('--probs', help='prob of main transition in the ' +
@@ -142,6 +140,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     if not os.path.exists(folder + 'bhvr_data_all.npz'):
+        vars_ = vars()
+        np.savez(folder + '/params.npz', **vars_)
         if alg == "A2C":
             from stable_baselines import A2C as algo
         elif alg == "ACER":
@@ -169,7 +169,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
 if __name__ == "__main__":
     main_folder = '/gpfs/projects/hcli64/molano/neurogym/20200417/'
     # main_folder = '/home/molano/priors/codes/experiments_parameters/'
-    # main_folder = '/home/manuel/ngym_usage/'
+    main_folder = '/home/manuel/ngym_usage/'
     # get params from call
     n_arg_parser = arg_parser()
     n_args, unknown_args = n_arg_parser.parse_known_args(sys.argv)
