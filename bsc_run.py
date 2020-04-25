@@ -90,6 +90,9 @@ def arg_parser():
     parser.add_argument('--stages',
                         help='stages used for training',
                         type=int, nargs='+', default=None)
+    parser.add_argument('--n_ch',
+                        help='number of stimuli and actions',
+                        type=int, default=None)
 
     # trial_hist wrapper parameters
     parser.add_argument('--probs', help='prob of main transition in the ' +
