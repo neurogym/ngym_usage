@@ -1,52 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue April 17  16:09:16 2020
+Created on Fri May  1 07:36:43 2020
 
 @author: molano
 """
 
 
 import numpy as np
-all_tasks = ['ContextDecisionMaking-v0',
-             'DelayedComparison-v0',
-             'PerceptualDecisionMaking-v0',
-             'EconomicDecisionMaking-v0',
-             'PostDecisionWager-v0',
-             'DelayPairedAssociation-v0',
-             'GoNogo-v0',
-             'ReadySetGo-v0',
-             'OneTwoThreeGo-v0',
-             'DelayedMatchSample-v0',
-             'DelayedMatchCategory-v0',
-             'DawTwoStep-v0',
-             'HierarchicalReasoning-v0',
-             'MatchingPenny-v0',
-             'MotorTiming-v0',
-             'MultiSensoryIntegration-v0',
-             'Bandit-v0',
-             'PerceptualDecisionMakingDelayResponse-v0',
-             'NAltPerceptualDecisionMaking-v0',
-             'Reaching1D-v0',
-             'Reaching1DWithSelfDistraction-v0',
-             'AntiReach-v0',
-             'DelayedMatchToSampleDistractor1D-v0',
-             'IntervalDiscrimination-v0',
-             'AngleReproduction-v0',
-             'Detection-v0',
-             'ReachingDelayResponse-v0',
-             'ChangingEnvironment-v0',
-             'ProbabilisticReasoning-v0',
-             'DualDelayedMatchSample-v0',
-             'PulseDecisionMaking-v0']
 explore = {'seed': np.arange(1),
            'alg': ['A2C', 'ACER', 'ACKTR', 'PPO2'],
-           'task': all_tasks}
+           'n_ch': [2, 4, 8, 16]}
 
 # other
-experiment = 'RL_training'
+experiment = 'tests'
 general_params = {'seed': None, 'alg': None,
-                  'task': None, 'n_lstm': 256,
+                  'task': 'NAltPerceptualDecisionMaking-v0', 'n_lstm': 256,
                   'rollout': 40, 'num_trials': 1000000, 'num_cpu': 20,
                   'run_time': 20}
 #
@@ -54,7 +23,10 @@ algs = {'A2C': {}, 'ACER': {}, 'ACKTR': {}, 'PPO2': {'nminibatches': 4}}
 
 
 # task
-task_kwargs = {k: {} for k in all_tasks}
+task_kwargs = {'NAltPerceptualDecisionMaking-v0': {'n_ch': None, 'timing': {
+                'fixation': ('constant', 200),
+                'stimulus': ('truncated_exponential', [330, 100, 1000]),
+                'decision': ('constant', 500)}}}
 
 # wrappers
 wrapps = {'Monitor-v0': {'folder': '', 'sv_fig': False, 'sv_per': 10000,

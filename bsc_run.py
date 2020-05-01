@@ -80,6 +80,8 @@ def arg_parser():
     # n-alternative task params
     parser.add_argument('--stim_scale', help='stimulus evidence',
                         type=float, default=None)
+    parser.add_argument('--ob_nch', help='Whether to provide num. channels',
+                        type=bool, default=None)
 
     # CV-learning task
     parser.add_argument('--th_stage',
@@ -98,6 +100,11 @@ def arg_parser():
                         default=None)
     parser.add_argument('--block_dur',
                         help='dur. of block in the trial-hist wrappr (trials)',
+                        type=int, default=None)
+
+    # variable-nch wrapper parameters
+    parser.add_argument('--block_nch',
+                        help='dur. of block in the variable-nch wrapper (trials)',
                         type=int, default=None)
 
     # monitor wrapper parameters
@@ -167,11 +174,6 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
 
 
 if __name__ == "__main__":
-    # main_folder = '/gpfs/projects/hcli64/molano/neurogym/20200417/'
-    main_folder = '/gpfs/projects/hcli64/shaping/'
-    # main_folder = '/home/molano/priors/codes/experiments_parameters/'
-    # main_folder = '/home/manuel/ngym_usage/'
-    # main_folder = '/home/manuel/CV-Learning/results/'
     # get params from call
     n_arg_parser = arg_parser()
     n_args, unknown_args = n_arg_parser.parse_known_args(sys.argv)
@@ -180,7 +182,7 @@ if __name__ == "__main__":
         print('Unkown parameters: ', unkown_params)
     n_args = vars(n_args)
     n_args = {k: n_args[k] for k in n_args.keys() if n_args[k] is not None}
-    main_folder = main_folder + n_args['folder'] + '/'
+    main_folder = n_args['folder'] + '/'
     name, _ = gncfd(n_args)
     instance_folder = main_folder + name + '/'
     # this is done wo the monitor wrapper's parameter folder is updated
