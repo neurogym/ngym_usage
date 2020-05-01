@@ -29,8 +29,8 @@ task_kwargs = {'NAltPerceptualDecisionMaking-v0': {'n_ch': None, 'ob_nch': True,
                                                               'decision': ('constant', 500)}}}
 
 # wrappers
-wrapps = {'TrialHistory-v0': {'block_dur': 4, 'probs': 0.99},
-          'Variable_nch-v0': {'block_nch': 10},
+wrapps = {'TrialHistory-v0': {'block_dur': 200, 'probs': 0.9},
+          'Variable_nch-v0': {'block_nch': 1000},
           'PassAction-v0': {},
           'PassReward-v0': {},
           'Monitor-v0': {'folder': '', 'sv_fig': False, 'sv_per': 10000,
