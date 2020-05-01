@@ -8,11 +8,13 @@ Created on Thu Feb 20 17:28:51 2020
 
 import os
 import sys
-# import numpy as np
 import importlib
 import itertools
-scriptsdir = '/home/hcli64/hcli64745/shaping/scripts/'
-workdir = '/home/hcli64/hcli64745/'
+# scriptsdir = '/home/hcli64/hcli64745/shaping/scripts/'
+# workdir = '/home/hcli64/hcli64745/'
+# script = 'shaping_run.py'
+scriptsdir = '/home/hcli64/hcli64348/anna_k/scripts/'
+workdir = '/home/hcli64/hcli64348/'
 script = 'bsc_run.py'
 
 commontxt = (
@@ -52,15 +54,15 @@ def get_name_and_command_from_dict(d):
 
 def gen_file(exp, n_cpu, run_time, **kwargs):
     name, cmd = get_name_and_command_from_dict(kwargs)
-    with open(f'{scriptsdir}/{exp}/{name}.sh', 'a') as f:
+    with open(f'{scriptsdir}/{exp}/{name}.sh', 'w') as f:
         f.write('#!/bin/sh\n')
         f.write(f'#SBATCH --job-name={name}\n')
-        f.write(f'#SBATCH --output={exp}/log.out\n')
+        f.write(f'#SBATCH --output={dirtosave}/logs/{name}.out\n')
         f.write(f'#SBATCH -D {workdir}\n')
         f.write(f'#SBATCH --cpus-per-task={n_cpu}\n')
         f.write(f'#SBATCH --time={run_time}:00:00\n')
         f.write(commontxt)
-        f.write(f'{workdir}{script}.py --folder {workdir}{exp} {cmd}')
+        f.write(f'{workdir}{script} --folder {dirtosave} {cmd}')
 
 
 if __name__ == '__main__':
@@ -83,6 +85,9 @@ if __name__ == '__main__':
     num_cpu = params.general_params['num_cpu']
     if not os.path.exists(scriptsdir + '/' + experiment):
         os.makedirs(scriptsdir + '/' + experiment)
+    if not os.path.exists(dirtosave + '/logs'):
+        os.makedirs(dirtosave + '/logs')
+        
 
     combinations = itertools.product(*explore.values())
     for ind_c, comb in enumerate(combinations):
