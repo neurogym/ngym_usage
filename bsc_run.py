@@ -136,7 +136,6 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
                 params_temp = wrapps[wrap]
                 update_dict(params_temp, n_args)
                 env = apply_wrapper(env, wrap, params_temp)
-
         return env
     set_global_seeds(seed)
     return _init
@@ -156,7 +155,6 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
             from stable_baselines import ACKTR as algo
         elif alg == "PPO2":
             from stable_baselines import PPO2 as algo
-
         env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
                                       wrapps=wrappers_kwargs, n_args=n_args,
                                       **task_kwargs)
