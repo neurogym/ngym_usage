@@ -146,7 +146,11 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     if not os.path.exists(folder + 'bhvr_data_all.npz'):
-        vars_ = vars()
+        vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
+                 'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
+                 'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
+                 'folder': folder, 'n_cpu': n_cpu, 'n_lstm': n_lstm}
+        np.savez(folder + '/params.npz', **vars_)
         if alg == "A2C":
             from stable_baselines import A2C as algo
         elif alg == "ACER":
@@ -167,8 +171,6 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         model.learn(total_timesteps=num_timesteps)
         model.save(f"{folder}model")
         plotting.plot_rew_across_training(folder=folder)
-        np.savez(folder + '/params.npz', **vars_)
-        # TODO: save parameters in instance_folder
 
 
 if __name__ == "__main__":
