@@ -53,12 +53,20 @@ def get_name_and_command_from_dict(d):
 
 
 def gen_file(exp, n_cpu, run_time, **kwargs):
+    # "To ensure fair and reliable CPU usage accounting information, we’ve
+    # enforced the need to use at least 40 threads for each GPU requested.
+    # In your job scripts, make sure that the amount of threads used meet the
+    # requirements for your GPU needs. Note that Slurm does refer to each thread
+    # as if it was a physical CPU.
+    # https://www.bsc.es/user-support/power.php#submittingjobs
+    n_cpu = int(40/n_cpu)
     name, cmd = get_name_and_command_from_dict(kwargs)
     with open(f'{scriptsdir}/{exp}/{name}.sh', 'w') as f:
         f.write('#!/bin/sh\n')
         f.write(f'#SBATCH --job-name={name}\n')
         f.write(f'#SBATCH --output={dirtosave}/logs/{name}.out\n')
         f.write(f'#SBATCH -D {workdir}\n')
+        f.write(f'#SBATCH --gres=gpu:1\n')
         f.write(f'#SBATCH --cpus-per-task={n_cpu}\n')
         f.write(f'#SBATCH --time={run_time}:00:00\n')
         f.write(commontxt)
