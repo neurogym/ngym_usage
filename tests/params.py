@@ -8,13 +8,13 @@ Created on Fri May  1 07:36:43 2020
 
 
 import numpy as np
-explore = {'seed': np.arange(3),
+explore = {'seed': np.arange(1),
            'alg': ['A2C', 'ACER', 'ACKTR', 'PPO2'],
            'n_ch': [2, 4, 8]}
 
 # other
 experiment = 'tests'
-general_params = {'seed': None, 'alg': None,
+general_params = {'seed': None, 'alg': None, 'num_tasks_per_node': 16,
                   'task': 'NAltPerceptualDecisionMaking-v0', 'n_lstm': 256,
                   'rollout': 40, 'num_trials': 1000000, 'num_cpu': 20,
                   'run_time': 20}
