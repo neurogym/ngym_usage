@@ -10,13 +10,17 @@ import os
 import sys
 import importlib
 import itertools
+import numpy as np
 # SCRIPTSDIR = '/home/hcli64/hcli64745/shaping/scripts/'
 # WORKDIR = '/home/hcli64/hcli64745/'
 # SCRIPT = 'shaping_run.py'
-SCRIPTSDIR = '/home/hcli64/hcli64348/anna_k/scripts/'
+SCRIPTSDIR = '/home/molano/ngym_usage/tests/'
+# SCRIPTSDIR = '/home/hcli64/hcli64348/anna_k/scripts/'
 WORKDIR = '/home/hcli64/hcli64348/'
 SCRIPT = 'bsc_run.py'
-
+NUM_CPUS_PER_GPU = 40
+NUM_GPUS_PER_NODE = 4
+NUM_CPUS_PER_NODE = NUM_GPUS_PER_NODE*NUM_CPUS_PER_GPU
 commontxt_1 = (
     'module purge\n'
     'module load gcc/6.4.0\n'
@@ -30,40 +34,22 @@ commontxt_1 = (
     'module load ffmpeg\n'
     'module load opencv/3.4.1\n'
     'module load python/3.6.5_ML\n'
-    '# COMPUTE NUBMER OF TASKS PER GPU\n'
+    '# COMPUTE NUMBER OF TASKS PER GPU\n'
     'REQUESTED_GPUS=4 # ask for 4 gpus (each node has 4 gpus)\n'
     'if [[ $SLURM_TASKS_PER_NODE -lt $REQUESTED_GPUS ]]; then\n'
     'NTASKS_PER_GPU=1\n'
     'else\n'
     'NTASKS_PER_GPU=$((SLURM_TASKS_PER_NODE/$REQUESTED_GPUS))\n'
     'fi\n'
-    '# LAUNCH RUNS'
-    "DEVICES=$(echo $CUDA_VISIBLE_DEVICES | tr ',' '\\n')\n"
+    '# LAUNCH RUNS\n'
     )
+
 commontxt_2 = (
-    'for DEVICE in $DEVICES; do\n'
-    'export CUDA_VISIBLE_DEVICES=$DEVICE\n'
-    'I=0\n'
-    'while [[ $I -lt $NTASKS_PER_GPU ]]; do\n'
+    '# CHECK THAT EVERYTHING IS FINE (?)\n'
+    'RET=0\n'
     )
 
 commontxt_3 = (
-    "declare \"PID${DEVICE}${I}=$!\"\n"
-    'I=$(($I+1))\n'
-    'SEED=$(($SEED+1))\n'
-    'done\n'
-    'done\n'
-    '# CHECK THAT EVERYTHING IS FINE (?)\n'
-    'RET=0\n'
-    'for DEVICE in $DEVICES; do\n'
-    'I=0\n'
-    'while [[ $I -lt $NTASKS_PER_GPU ]]; do\n'
-    "PID=\"PID${DEVICE}${I}\"\n"
-    'wait ${!PID}\n'
-    'RET=$(($RET+$?))\n'
-    'I=$(($I+1))\n'
-    'done\n'
-    'done\n'
     'exit $RET #if 0 all ok, else something failed\n'
     )
 
@@ -87,20 +73,20 @@ def get_name_and_command_from_dict(d):
     return name[:-1], cmd
 
 
-def gen_file(exp, n_cpu, run_time, dirtosave, num_tasks_per_node,
-             **kwargs):
+def gen_file(combs, exp, n_cpu, num_gpus, run_time, dirtosave, num_tasks_per_node,
+             num_tasks_per_gpu, keys):
     # "To ensure fair and reliable CPU usage accounting information, we’ve
     # enforced the need to use at least 40 threads for each GPU requested.
     # In your job scripts, make sure that the amount of threads used meet the
     # requirements for your GPU needs. Note that Slurm does refer to each thread
     # as if it was a physical CPU.
     # https://www.bsc.es/user-support/power.php#submittingjobs
-    name, cmd = get_name_and_command_from_dict(kwargs)
-    seed = num_tasks_per_node*kwargs['seed']  # each seed will actually correspond
+    comb_tmp = {key: combs[0][ind] for ind, key in enumerate(keys)}
+    name, _ = get_name_and_command_from_dict(comb_tmp)
     with open(f'{SCRIPTSDIR}/{exp}/{name}.sh', 'w') as f:
         f.write('#!/bin/sh\n')
-        f.write('#SBATCH -N 1 # 1 node\n')
-        f.write('#SBATCH --gres=gpu:4 # 4 GPUs\n')
+        # f.write('#SBATCH -N 1 # 1 node\n')
+        f.write(f'#SBATCH --gres=gpu:{num_gpus} # num GPUs\n')
         f.write(f'#SBATCH --job-name={name}\n')
         f.write(f'#SBATCH --output={dirtosave}/logs/{name}.out\n')
         f.write(f'#SBATCH -D {WORKDIR}\n')
@@ -108,17 +94,34 @@ def gen_file(exp, n_cpu, run_time, dirtosave, num_tasks_per_node,
         f.write(f'#SBATCH -n {num_tasks_per_node} # number of task per node\n')
         f.write(f'#SBATCH --time={run_time}:00:00\n')
         f.write(commontxt_1)
-        f.write(f'SEED={seed}\n')
+        run_cnt = 0
+        for ind_gpu in range(num_gpus):
+            f.write('################\n')
+            f.write(f'export CUDA_VISIBLE_DEVICES={ind_gpu}\n')
+            for ind_run in range(num_tasks_per_gpu):
+                c = {key: combs[run_cnt][ind] for ind, key in enumerate(keys)}
+                _, cmd = get_name_and_command_from_dict(c)
+                f.write(f'{WORKDIR}{SCRIPT} --folder {dirtosave} {cmd} &\n')
+                f.write(f'PID{ind_gpu}{ind_run}=$!\n')
+                run_cnt += 1
         f.write(commontxt_2)
-        f.write(f'{WORKDIR}{SCRIPT} --folder {dirtosave} {cmd} &\n')
+        for ind_gpu in range(num_gpus):
+            f.write(f'export CUDA_VISIBLE_DEVICES={ind_gpu}\n')
+            for ind_run in range(num_tasks_per_gpu):
+                f.write(f'PID="PID{ind_gpu}{ind_run}"\n')
+                f.write('wait ${!PID}\n')
+                f.write('RET=$(($RET+$?))\n')
         f.write(commontxt_3)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) == 2:
+        dirtosave = sys.argv[1]
+    elif len(sys.argv) == 1:
+        dirtosave = '/home/molano/ngym_usage/tests/'
+    else:
         raise ValueError("usage: gen_scripts.py [path]")
 
-    dirtosave = sys.argv[1]
     if not os.path.exists(dirtosave):
         raise ValueError("Provided path does not exist")
 
@@ -131,19 +134,32 @@ if __name__ == '__main__':
     explore = params.explore
     experiment = params.experiment
     run_time = params.general_params['run_time']
-    num_tasks_per_node = params.general_params['num_tasks_per_node']
-    num_cpu = int(160/num_tasks_per_node)  # 160= 4 gpus-per-node x 40 cpus-per-gpu
+    num_cpus_per_task = params.general_params['num_cpu']
+    num_tasks_per_node = int(NUM_CPUS_PER_NODE/num_cpus_per_task)
+    # num_cpus_per_node = num_cpus_per_task*num_tasks_per_node
+    # 160 = 4 gpus-per-node x 40 cpus-per-gpu
+    # assert num_cpus_per_node <= NUM_CPUS_PER_NODE, 'Asking for more than 1 node'
     if not os.path.exists(SCRIPTSDIR + '/' + experiment):
         os.makedirs(SCRIPTSDIR + '/' + experiment)
     if not os.path.exists(dirtosave + '/logs'):
         os.makedirs(dirtosave + '/logs')
-
-    combinations = itertools.product(*explore.values())
-    for ind_c, comb in enumerate(combinations):
-        pars = {key: comb[ind] for ind, key in enumerate(explore.keys())}
-        print(pars)
-        gen_file(exp=experiment, n_cpu=num_cpu, run_time=run_time,
-                 dirtosave=dirtosave, num_tasks_per_node=num_tasks_per_node,
-                 **pars)
+    combinations = list(itertools.product(*explore.values()))
+    assert ((len(combinations)*num_cpus_per_task) % NUM_CPUS_PER_GPU) == 0
+    num_nodes = int(np.ceil(len(combinations)*num_cpus_per_task/NUM_CPUS_PER_NODE))
+    assert ((len(combinations)*num_cpus_per_task) % NUM_CPUS_PER_NODE) == 0
+    for ind_node in range(num_nodes):
+        combs = combinations[ind_node*num_tasks_per_node:
+                             (ind_node+1)*num_tasks_per_node]
+        print(combs)
+        print('----------')
+        num_task_in_node = len(combs)
+        num_gpus = int(num_task_in_node*num_cpus_per_task/NUM_CPUS_PER_GPU)
+        assert ((num_task_in_node*num_cpus_per_task)%NUM_CPUS_PER_GPU) == 0
+        num_tasks_per_gpu = int(num_task_in_node/num_gpus)
+        assert (num_task_in_node%num_gpus) == 0
+        gen_file(combs=combs, exp=experiment, n_cpu=num_cpus_per_task,
+                 num_gpus=num_gpus, run_time=run_time, dirtosave=dirtosave,
+                 num_tasks_per_node=num_task_in_node,
+                 num_tasks_per_gpu=num_tasks_per_gpu, keys=explore.keys())
 
     print('done')
