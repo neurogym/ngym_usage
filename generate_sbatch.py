@@ -14,8 +14,8 @@ import numpy as np
 # SCRIPTSDIR = '/home/hcli64/hcli64745/shaping/scripts/'
 # WORKDIR = '/home/hcli64/hcli64745/'
 # SCRIPT = 'shaping_run.py'
-SCRIPTSDIR = '/home/molano/ngym_usage/tests/'
-# SCRIPTSDIR = '/home/hcli64/hcli64348/anna_k/scripts/'
+# SCRIPTSDIR = '/home/molano/ngym_usage/tests/'
+SCRIPTSDIR = '/home/hcli64/hcli64348/anna_k/scripts/'
 WORKDIR = '/home/hcli64/hcli64348/'
 SCRIPT = 'bsc_run.py'
 NUM_CPUS_PER_GPU = 40
