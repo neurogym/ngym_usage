@@ -144,6 +144,12 @@ if __name__ == '__main__':
     if not os.path.exists(dirtosave + '/logs'):
         os.makedirs(dirtosave + '/logs')
     combinations = list(itertools.product(*explore.values()))
+    try:
+        explore_bis = params.explore_bis
+        combinations_bis = list(itertools.product(*explore_bis.values()))
+        combinations = combinations + combinations_bis
+    except AttributeError:
+        print('no explore bis attribute')
     assert ((len(combinations)*num_cpus_per_task) % NUM_CPUS_PER_GPU) == 0
     num_nodes = int(np.ceil(len(combinations)*num_cpus_per_task/NUM_CPUS_PER_NODE))
     assert ((len(combinations)*num_cpus_per_task) % NUM_CPUS_PER_NODE) == 0
@@ -154,9 +160,9 @@ if __name__ == '__main__':
         print('----------')
         num_task_in_node = len(combs)
         num_gpus = int(num_task_in_node*num_cpus_per_task/NUM_CPUS_PER_GPU)
-        assert ((num_task_in_node*num_cpus_per_task)%NUM_CPUS_PER_GPU) == 0
+        assert ((num_task_in_node*num_cpus_per_task) % NUM_CPUS_PER_GPU) == 0
         num_tasks_per_gpu = int(num_task_in_node/num_gpus)
-        assert (num_task_in_node%num_gpus) == 0
+        assert (num_task_in_node % num_gpus) == 0
         gen_file(combs=combs, exp=experiment, n_cpu=num_cpus_per_task,
                  num_gpus=num_gpus, run_time=run_time, dirtosave=dirtosave,
                  num_tasks_per_node=num_task_in_node,
