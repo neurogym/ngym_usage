@@ -72,7 +72,7 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--seed', help='seed for task',
                         type=int, default=None)
-    parser.add_argument('--num_cpu', help='number of threads',
+    parser.add_argument('--num_thrds', help='number of threads',
                         type=int, default=None)
     parser.add_argument('--n_ch', help='number of choices',
                         type=int, default=None)
@@ -142,14 +142,14 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
 
 
 def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
-        rollout, num_trials, folder, n_cpu, n_lstm):
+        rollout, num_trials, folder, n_thrds, n_lstm):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     if not os.path.exists(folder + 'bhvr_data_all.npz'):
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
-                 'folder': folder, 'n_cpu': n_cpu, 'n_lstm': n_lstm}
+                 'folder': folder, 'n_thrds': n_thrds, 'n_lstm': n_lstm}
         np.savez(folder + '/params.npz', **vars_)
         if alg == "A2C":
             from stable_baselines import A2C as algo
@@ -162,9 +162,9 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
                                       wrapps=wrappers_kwargs, n_args=n_args,
                                       **task_kwargs)
-                             for i in range(n_cpu)])
+                             for i in range(n_thrds)])
         model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
-                     n_cpu_tf_sess=n_cpu,
+                     n_cpu_tf_sess=n_thrds,
                      policy_kwargs={"feature_extraction": "mlp",
                                     "n_lstm": n_lstm},
                      **alg_kwargs)
@@ -209,10 +209,10 @@ if __name__ == "__main__":
     seed = int(gen_params['seed'])
     num_trials = int(gen_params['num_trials'])
     rollout = int(gen_params['rollout'])
-    num_cpu = int(gen_params['num_cpu'])
+    num_thrds = int(gen_params['num_thrds'])
     n_lstm = int(gen_params['n_lstm'])
     task_kwargs = params.task_kwargs[gen_params['task']]
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
-        num_trials=num_trials, folder=instance_folder, n_cpu=num_cpu,
+        num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
         n_lstm=n_lstm)

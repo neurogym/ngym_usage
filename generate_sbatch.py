@@ -152,7 +152,6 @@ if __name__ == '__main__':
         print('no explore bis attribute')
     assert ((len(combinations)*num_cpus_per_task) % NUM_CPUS_PER_GPU) == 0
     num_nodes = int(np.ceil(len(combinations)*num_cpus_per_task/NUM_CPUS_PER_NODE))
-    assert ((len(combinations)*num_cpus_per_task) % NUM_CPUS_PER_NODE) == 0
     for ind_node in range(num_nodes):
         combs = combinations[ind_node*num_tasks_per_node:
                              (ind_node+1)*num_tasks_per_node]
