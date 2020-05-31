@@ -101,6 +101,8 @@ def arg_parser():
     parser.add_argument('--block_dur',
                         help='dur. of block in the trial-hist wrappr (trials)',
                         type=int, default=None)
+    parser.add_argument('--num_blocks', help='number of blocks', type=int,
+                        default=None)
 
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
