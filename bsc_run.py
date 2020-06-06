@@ -108,6 +108,8 @@ def arg_parser():
     parser.add_argument('--block_nch',
                         help='dur. of block in the variable-nch wrapper (trials)',
                         type=int, default=None)
+    parser.add_argument('--blocks_probs', help='probability of each block',
+                        type=float, nargs='+', default=None)
 
     # monitor wrapper parameters
     parser.add_argument('--sv_fig',
