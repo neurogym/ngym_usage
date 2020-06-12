@@ -151,7 +151,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs={'test_retrain': ''}):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if not os.path.exists(folder + 'bhvr_data_all.npz'):
+    if not os.path.exists(folder+'model.zip') and not rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
@@ -165,22 +165,21 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
             from stable_baselines import ACKTR as algo
         elif alg == "PPO2":
             from stable_baselines import PPO2 as algo
-        if not os.path.exists(folder+'model.zip') and not rerun:
-            env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
-                                          wrapps=wrappers_kwargs, n_args=n_args,
-                                          **task_kwargs)
-                                 for i in range(n_thrds)])
-            model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
-                         n_cpu_tf_sess=n_thrds,
-                         policy_kwargs={"feature_extraction": "mlp",
-                                        "n_lstm": n_lstm},
-                         **alg_kwargs)
-            model.learn(total_timesteps=num_timesteps)
+        env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
+                                      wrapps=wrappers_kwargs, n_args=n_args,
+                                      **task_kwargs)
+                             for i in range(n_thrds)])
+        model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
+                     n_cpu_tf_sess=n_thrds,
+                     policy_kwargs={"feature_extraction": "mlp",
+                                    "n_lstm": n_lstm},
+                     **alg_kwargs)
+        model.learn(total_timesteps=num_timesteps)
         model.save(f"{folder}model")
-        if test_kwargs['test_retrain'] != '':
-            sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
-            ga.get_activity(folder, algo, sv_folder, **test_kwargs)
-        plotting.plot_rew_across_training(folder=folder)
+    if test_kwargs['test_retrain'] != '':
+        sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
+        ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+    plotting.plot_rew_across_training(folder=folder)
 
 
 if __name__ == "__main__":
