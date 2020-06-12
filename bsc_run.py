@@ -16,10 +16,11 @@ import numpy as np
 # import numpy as np
 import importlib
 import argparse
-import get_activity as ga
 sys.path.append(os.path.expanduser("~/gym"))
 sys.path.append(os.path.expanduser("~/stable-baselines"))
 sys.path.append(os.path.expanduser("~/neurogym"))
+sys.path.append(os.path.expanduser("~/multiple_choice"))
+import get_activity as ga
 import gym
 import neurogym as ngym  # need to import it so ngym envs are registered
 from neurogym.utils import plotting
