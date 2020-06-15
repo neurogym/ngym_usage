@@ -153,7 +153,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs={'test_retrain': ''}):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if not os.path.exists(folder+'/model.zip') and not rerun:
+    if (not os.path.exists(folder+'/model.zip')) or rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
