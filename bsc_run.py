@@ -19,6 +19,8 @@ import argparse
 sys.path.append(os.path.expanduser("~/gym"))
 sys.path.append(os.path.expanduser("~/stable-baselines"))
 sys.path.append(os.path.expanduser("~/neurogym"))
+sys.path.append(os.path.expanduser("~/multiple_choice"))
+import get_activity as ga
 import gym
 import neurogym as ngym  # need to import it so ngym envs are registered
 from neurogym.utils import plotting
@@ -27,6 +29,7 @@ from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common import set_global_seeds
+from stable_baselines.common.callbacks import CheckpointCallback
 
 
 def test_env(env, kwargs, num_steps=100):
@@ -146,10 +149,11 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
 
 
 def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
-        rollout, num_trials, folder, n_thrds, n_lstm):
+        rollout, num_trials, folder, n_thrds, n_lstm, rerun=False,
+        test_kwargs={'test_retrain': ''}):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if not os.path.exists(folder + 'bhvr_data_all.npz'):
+    if (not os.path.exists(folder+'/model.zip')) or rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
@@ -172,9 +176,16 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                      policy_kwargs={"feature_extraction": "mlp",
                                     "n_lstm": n_lstm},
                      **alg_kwargs)
-        model.learn(total_timesteps=num_timesteps)
-        model.save(f"{folder}model")
+        sv_freq = wrappers_kwargs['Monitor-v0']['sv_per']
+        checkpoint_callback = CheckpointCallback(save_freq=sv_freq,
+                                                 save_path=folder,
+                                                 name_prefix='model')
+        model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
+        model.save(f"{folder}/model")
         plotting.plot_rew_across_training(folder=folder)
+    if test_kwargs['test_retrain'] != '':
+        sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
+        ga.get_activity(folder, alg, sv_folder, **test_kwargs)
 
 
 if __name__ == "__main__":
@@ -216,7 +227,11 @@ if __name__ == "__main__":
     num_thrds = int(gen_params['num_thrds'])
     n_lstm = int(gen_params['n_lstm'])
     task_kwargs = params.task_kwargs[gen_params['task']]
+    if hasattr(params, 'test_kwargs'):
+        test_kwargs = params.test_kwargs
+    else:
+        test_kwargs = {'test_retrain': ''}
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
-        n_lstm=n_lstm)
+        n_lstm=n_lstm, test_kwargs=test_kwargs)
