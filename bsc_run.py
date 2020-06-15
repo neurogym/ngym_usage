@@ -29,6 +29,7 @@ from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common import set_global_seeds
+from stable_baselines.common.callbacks import CheckpointCallback
 
 
 def test_env(env, kwargs, num_steps=100):
@@ -175,7 +176,11 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                      policy_kwargs={"feature_extraction": "mlp",
                                     "n_lstm": n_lstm},
                      **alg_kwargs)
-        model.learn(total_timesteps=num_timesteps)
+        sv_freq = wrappers_kwargs['Monitor-v0']['sv_per']
+        checkpoint_callback = CheckpointCallback(save_freq=sv_freq,
+                                                 save_path=folder+'/logs/',
+                                                 name_prefix='model')
+        model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
         model.save(f"{folder}model")
     if test_kwargs['test_retrain'] != '':
         sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
