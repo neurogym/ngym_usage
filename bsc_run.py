@@ -153,7 +153,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs={'test_retrain': ''}):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if not os.path.exists(folder+'model.zip') and not rerun:
+    if not os.path.exists(folder+'/model.zip') and not rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
@@ -178,10 +178,10 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                      **alg_kwargs)
         sv_freq = wrappers_kwargs['Monitor-v0']['sv_per']
         checkpoint_callback = CheckpointCallback(save_freq=sv_freq,
-                                                 save_path=folder+'/logs/',
+                                                 save_path=folder,
                                                  name_prefix='model')
         model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
-        model.save(f"{folder}model")
+        model.save(f"{folder}/model")
     if test_kwargs['test_retrain'] != '':
         sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
