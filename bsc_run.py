@@ -182,10 +182,10 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                                                  name_prefix='model')
         model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
         model.save(f"{folder}/model")
+        plotting.plot_rew_across_training(folder=folder)
     if test_kwargs['test_retrain'] != '':
         sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
-    plotting.plot_rew_across_training(folder=folder)
 
 
 if __name__ == "__main__":
