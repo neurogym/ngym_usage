@@ -29,23 +29,24 @@ tasks = ngym.get_collection('yang19')
 envs = [gym.make(task, **kwargs) for task in tasks]
 schedule = RandomSchedule(len(envs))
 env = ScheduleEnvs(envs, schedule=schedule, env_input=True)
-dataset = ngym.Dataset(env, batch_size=2, seq_len=seq_len)
+dataset = ngym.Dataset(env, batch_size=4, seq_len=seq_len)
 
 env = dataset.env
 ob_size = env.observation_space.shape[0]
 act_size = env.action_space.n
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-net = RNNNet(input_size=ob_size, hidden_size=256, output_size=act_size,
-             dt=env.dt).to(device)
+print(device)
+model = RNNNet(input_size=ob_size, hidden_size=256, output_size=act_size,
+               dt=env.dt).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(net.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 print_step = 200
 running_loss = 0.0
 running_task_time = 0
 running_train_time = 0
-for i in range(20000):
+for i in range(40000):
     task_time_start = time.time()
     inputs, labels = dataset()
     running_task_time += time.time() - task_time_start
@@ -57,10 +58,11 @@ for i in range(20000):
     optimizer.zero_grad()
 
     # forward + backward + optimize
-    outputs, _ = net(inputs)
+    outputs, _ = model(inputs)
 
     loss = criterion(outputs.view(-1, act_size), labels)
     loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
     optimizer.step()
     running_train_time += time.time() - train_time_start
     # print statistics
@@ -68,16 +70,16 @@ for i in range(20000):
     if i % print_step == (print_step - 1):
         print('{:d} loss: {:0.5f}'.format(i + 1, running_loss / print_step))
         running_loss = 0.0
-        if False:
+        if True:
             print('Task/Train time {:0.1f}/{:0.1f} ms/step'.format(
                     running_task_time / print_step * 1e3,
                     running_train_time / print_step * 1e3))
             running_task_time, running_train_time = 0, 0
 
-        perf = get_performance(net, env, num_trial=200)
+        perf = get_performance(model, env, num_trial=200, device=device)
         print('{:d} perf: {:0.2f}'.format(i + 1, perf))
 
-        fname = os.path.join('files', 'model_tmp.pt')
-        torch.save(net.state_dict(), fname)
+        fname = os.path.join('files', 'model.pt')
+        torch.save(model.state_dict(), fname)
 
 print('Finished Training')

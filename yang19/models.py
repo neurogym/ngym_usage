@@ -42,9 +42,9 @@ class CTRNN(nn.Module):
         nn.init.eye_(self.h2h.weight)
         self.h2h.weight.data *= 0.5
 
-    def init_hidden(self, input_shape):
-        batch_size = input_shape[1]
-        return torch.zeros(batch_size, self.hidden_size)
+    def init_hidden(self, input):
+        batch_size = input.shape[1]
+        return torch.zeros(batch_size, self.hidden_size).to(input.device)
 
     def recurrence(self, input, hidden):
         """Recurrence helper."""
@@ -56,7 +56,7 @@ class CTRNN(nn.Module):
     def forward(self, input, hidden=None):
         """Propogate input through the network."""
         if hidden is None:
-            hidden = self.init_hidden(input.shape).to(input.device)
+            hidden = self.init_hidden(input)
 
         output = []
         steps = range(input.size(0))
@@ -104,16 +104,16 @@ class RNNNet(nn.Module):
 
 
 # TODO: Make this into a function in neurogym
-def get_performance(net, env, num_trial=1000):
+def get_performance(net, env, num_trial=1000, device='cpu'):
     perf = 0
     for i in range(num_trial):
         env.new_trial()
         ob, gt = env.ob, env.gt
         ob = ob[:, np.newaxis, :]  # Add batch axis
-        inputs = torch.from_numpy(ob).type(torch.float).to('cpu')
+        inputs = torch.from_numpy(ob).type(torch.float).to(device)
 
         action_pred, _ = net(inputs)
-        action_pred = action_pred.detach().numpy()
+        action_pred = action_pred.detach().cpu().numpy()
         action_pred = np.argmax(action_pred, axis=-1)
         perf += gt[-1] == action_pred[-1, 0]
 

@@ -22,10 +22,10 @@ envs = [gym.make(task, **kwargs) for task in tasks]
 env = MultiEnvs(envs, env_input=True)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-net = RNNNet(input_size=53, hidden_size=128, output_size=17,
+net = RNNNet(input_size=53, hidden_size=256, output_size=17,
              dt=env.dt).to(device)
-fname = os.path.join('files', 'model_tmp.pt')
-net.load_state_dict(torch.load(fname))
+fname = os.path.join('files', 'model.pt')
+net.load_state_dict(torch.load(fname, map_location=torch.device(device)))
 
 
 def get_activity(net, env, num_trial=1000):
@@ -56,7 +56,7 @@ for i in range(20):
 task_variance_list = list()
 for i in range(20):
     env.set_i(i)
-    activity, trial_list = get_activity(net, env, num_trial=100)
+    activity, trial_list = get_activity(net, env, num_trial=500)
     # Compute task variance
     task_variance = np.var(activity, axis=1).mean(axis=0)
     task_variance_list.append(task_variance)
@@ -66,12 +66,24 @@ task_variance = task_variance[:, task_variance.sum(axis=0)>thres]
 
 norm_task_variance = task_variance / np.max(task_variance, axis=0)
 from sklearn.cluster import AgglomerativeClustering
-cluster_model = AgglomerativeClustering(n_clusters=10)
-cluster_model.fit(norm_task_variance.T)
+from sklearn.metrics import silhouette_score
+X = norm_task_variance.T
+silhouette_scores = list()
+n_clusters = np.arange(2, 20)
+for n in n_clusters:
+    cluster_model = AgglomerativeClustering(n_clusters=n)
+    labels = cluster_model.fit_predict(X)
+    silhouette_scores.append(silhouette_score(X, labels))
+plt.figure()
+plt.plot(n_clusters, silhouette_scores, 'o-')
+plt.xlabel('Number of clusters')
+plt.ylabel('Silhouette score')
 
+n_cluster = n_clusters[np.argmax(silhouette_scores)]
+cluster_model = AgglomerativeClustering(n_clusters=n_cluster)
+labels = cluster_model.fit_predict(X)
 
 # Sort clusters by its task preference (important for consistency across nets)
-labels = cluster_model.labels_
 label_prefs = [np.argmax(norm_task_variance[:, labels==l].sum(axis=1)) for l in set(labels)]
 
 ind_label_sort = np.argsort(label_prefs)
