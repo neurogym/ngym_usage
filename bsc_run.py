@@ -182,7 +182,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                      policy_kwargs={"feature_extraction": "mlp",
                                     "n_lstm": n_lstm},
                      **alg_kwargs)
-        sv_freq = wrappers_kwargs['Monitor-v0']['sv_per']
+        # this assumes 1 trial ~ 10 steps
+        sv_freq = 10*wrappers_kwargs['Monitor-v0']['sv_per']
         checkpoint_callback = CheckpointCallback(save_freq=sv_freq,
                                                  save_path=folder,
                                                  name_prefix='model')
