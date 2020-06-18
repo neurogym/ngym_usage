@@ -106,6 +106,12 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--num_blocks', help='number of blocks', type=int,
                         default=None)
+    parser.add_argument('--rand_blcks', help='whether transition matrix is' +
+                        ' built randomly', type=bool, default=None)
+    parser.add_argument('--blk_ch_prob', help='probability of trans. mat. change',
+                        type=float, default=None)
+    parser.add_argument('--balanced_probs', help='whether transition matrix is' +
+                        ' side-balanced', type=bool, default=None)
 
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
