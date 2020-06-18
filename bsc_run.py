@@ -190,8 +190,12 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
         model.save(f"{folder}/model")
         plotting.plot_rew_across_training(folder=folder)
-    if test_kwargs['test_retrain'] != '':
-        sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
+    if test_kwargs['test_retrain']:
+        sv_folder = folder + '/test/'
+        test_kwargs['test_retrain'] = 'test'
+        ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+        sv_folder = folder + '/retrain/'
+        test_kwargs['test_retrain'] = 'retrain'
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
 
 
@@ -237,7 +241,7 @@ if __name__ == "__main__":
     if hasattr(params, 'test_kwargs'):
         test_kwargs = params.test_kwargs
     else:
-        test_kwargs = {'test_retrain': ''}
+        test_kwargs = {'test_retrain': False}
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
