@@ -13,7 +13,7 @@ from ops.utils import get_name_and_command_from_dict as gncfd
 from ops.utils import rest_arg_parser
 import sys
 import numpy as np
-# import numpy as np
+import glob
 import importlib
 import argparse
 sys.path.append(os.path.expanduser("~/gym"))
@@ -159,7 +159,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs={'test_retrain': ''}):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if (not os.path.exists(folder+'/model.zip')) or rerun:
+    files = glob.glob(folder+'/*model*.zip')
+    if len(files) == 0 or rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
