@@ -197,6 +197,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
         sv_folder = folder + '/retrain/'
         test_kwargs['test_retrain'] = 'retrain'
+        test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
 
 
