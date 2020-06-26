@@ -13,7 +13,7 @@ from ops.utils import get_name_and_command_from_dict as gncfd
 from ops.utils import rest_arg_parser
 import sys
 import numpy as np
-# import numpy as np
+import glob
 import importlib
 import argparse
 sys.path.append(os.path.expanduser("~/gym"))
@@ -106,6 +106,12 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--num_blocks', help='number of blocks', type=int,
                         default=None)
+    parser.add_argument('--rand_blcks', help='whether transition matrix is' +
+                        ' built randomly', type=bool, default=None)
+    parser.add_argument('--blk_ch_prob', help='probability of trans. mat. change',
+                        type=float, default=None)
+    parser.add_argument('--balanced_probs', help='whether transition matrix is' +
+                        ' side-balanced', type=bool, default=None)
 
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
@@ -153,7 +159,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs={'test_retrain': ''}):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    if (not os.path.exists(folder+'/model.zip')) or rerun:
+    files = glob.glob(folder+'/*model*.zip')
+    if len(files) == 0 or rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
@@ -176,15 +183,21 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                      policy_kwargs={"feature_extraction": "mlp",
                                     "n_lstm": n_lstm},
                      **alg_kwargs)
-        sv_freq = wrappers_kwargs['Monitor-v0']['sv_per']
+        # this assumes 1 trial ~ 10 steps
+        sv_freq = 10*wrappers_kwargs['Monitor-v0']['sv_per']
         checkpoint_callback = CheckpointCallback(save_freq=sv_freq,
                                                  save_path=folder,
                                                  name_prefix='model')
         model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
         model.save(f"{folder}/model")
         plotting.plot_rew_across_training(folder=folder)
-    if test_kwargs['test_retrain'] != '':
-        sv_folder = folder + '/' + test_kwargs['test_retrain']+'/'
+    if test_kwargs['test_retrain']:
+        sv_folder = folder + '/test/'
+        test_kwargs['test_retrain'] = 'test'
+        ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+        sv_folder = folder + '/retrain/'
+        test_kwargs['test_retrain'] = 'retrain'
+        test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
 
 
@@ -230,7 +243,7 @@ if __name__ == "__main__":
     if hasattr(params, 'test_kwargs'):
         test_kwargs = params.test_kwargs
     else:
-        test_kwargs = {'test_retrain': ''}
+        test_kwargs = {'test_retrain': False}
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
