@@ -24,8 +24,6 @@ seq_len = 100
 
 # Make supervised dataset
 tasks = ngym.get_collection('yang19')
-# tasks = ['yang19.dm1-v0']
-# tasks = ['yang19.dlydm1-v0', 'yang19.dlydm2-v0']
 envs = [gym.make(task, **kwargs) for task in tasks]
 schedule = RandomSchedule(len(envs))
 env = ScheduleEnvs(envs, schedule=schedule, env_input=True)
