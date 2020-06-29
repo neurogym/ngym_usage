@@ -199,7 +199,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
         # test with only 8-choice blocks
         ga.get_activity(folder, alg, sv_folder, probs_nch=np.array([[6], [1]]),
-                        prob_change_blck=0.0001, **test_kwargs)
+                        prob_ch_blck=0.0001, **test_kwargs)
 
         sv_folder = folder + '/retrain/'
         test_kwargs['test_retrain'] = 'retrain'
