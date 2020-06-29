@@ -199,6 +199,11 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs['test_retrain'] = 'retrain'
         test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+        sv_folder = folder + '/test_4/'
+        test_kwargs['test_retrain'] = 'test'
+        test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
+        ga.get_activity(folder, alg, sv_folder, probs=np.array([[2], [1]]),
+                        **test_kwargs)
 
 
 if __name__ == "__main__":
