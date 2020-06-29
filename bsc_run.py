@@ -108,14 +108,14 @@ def arg_parser():
                         default=None)
     parser.add_argument('--rand_blcks', help='whether transition matrix is' +
                         ' built randomly', type=bool, default=None)
-    parser.add_argument('--blk_ch_prob', help='probability of trans. mat. change',
+    parser.add_argument('--blk_ch_prob', help='prob of trans. mat. change',
                         type=float, default=None)
     parser.add_argument('--balanced_probs', help='whether transition matrix is' +
                         ' side-balanced', type=bool, default=None)
 
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
-                        help='dur. of block in the variable-nch wrapper (trials)',
+                        help='dur. of blck in the variable-nch wrapper (trials)',
                         type=int, default=None)
     parser.add_argument('--blocks_probs', help='probability of each block',
                         type=float, nargs='+', default=None)
@@ -195,15 +195,15 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         sv_folder = folder + '/test/'
         test_kwargs['test_retrain'] = 'test'
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+        sv_folder = folder + '/test_4/'
+        test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
+        ga.get_activity(folder, alg, sv_folder, probs=np.array([[2], [1]]),
+                        **test_kwargs)
+
         sv_folder = folder + '/retrain/'
         test_kwargs['test_retrain'] = 'retrain'
         test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
-        sv_folder = folder + '/test_4/'
-        test_kwargs['test_retrain'] = 'test'
-        test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
-        ga.get_activity(folder, alg, sv_folder, probs=np.array([[2], [1]]),
-                        **test_kwargs)
 
 
 if __name__ == "__main__":
@@ -223,7 +223,7 @@ if __name__ == "__main__":
     if not os.path.exists(instance_folder):
         os.makedirs(instance_folder)
     # load parameters
-    print(main_folder+"/params.py")
+    print(main_folder)
     sys.path.append(os.path.expanduser(main_folder))
     spec = importlib.util.spec_from_file_location("params",
                                                   main_folder+"/params.py")
