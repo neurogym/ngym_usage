@@ -205,8 +205,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                             prob_ch_blck=0.0001, **test_kwargs)
         # retrain on 2-choice blocks
         test_kwargs['test_retrain'] = 'retrain'
-        test_kwargs['sv_per'] = 10000
-        test_kwargs['num_steps'] = 200000
+        test_kwargs['sv_per'] = 5000
+        test_kwargs['num_steps'] = 4000000
         seed_retrain = test_kwargs['seed']
         files = glob.glob(folder+'/*model*.zip')
         sorted_models, _ = ga.order_by_sufix(files)
@@ -217,7 +217,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                 print(sv_folder)
                 test_kwargs['seed'] = seed_retrain + ind_rtr
                 ga.get_activity(folder, alg, sv_folder, model_name=mod,
-                                probs_nch=np.array([[0], [1]]),
+                                probs_nch=np.array([[0], [1]]), rerun=True,
                                 **test_kwargs)
 
 
