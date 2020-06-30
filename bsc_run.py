@@ -156,7 +156,7 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
 
 def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         rollout, num_trials, folder, n_thrds, n_lstm, rerun=False,
-        test_kwargs={'test_retrain': ''}):
+        test_kwargs={'test_retrain': ''}, num_retrains=10, seed=0):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     files = glob.glob(folder+'/*model*.zip')
@@ -197,16 +197,28 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         test_kwargs['test_retrain'] = 'test'
         ga.get_activity(folder, alg, sv_folder, probs_nch=np.array([[0], [1]]),
                         **test_kwargs)
-        # test with only 8-choice blocks
-        sv_folder = folder + '/test_8/'
-        ga.get_activity(folder, alg, sv_folder, probs_nch=np.array([[6], [1]]),
-                        prob_ch_blck=0.0001, **test_kwargs)
+        if task_kwargs['n_ch'] >= 8:
+            # test with only 8-choice blocks
+            sv_folder = folder + '/test_8/'
+            ga.get_activity(folder, alg, sv_folder,
+                            probs_nch=np.array([[6], [1]]),
+                            prob_ch_blck=0.0001, **test_kwargs)
         # retrain on 2-choice blocks
-        sv_folder = folder + '/retrain/'
         test_kwargs['test_retrain'] = 'retrain'
-        test_kwargs['num_steps'] = n_thrds*test_kwargs['num_steps']
-        ga.get_activity(folder, alg, sv_folder,  probs_nch=np.array([[0], [1]]),
-                        **test_kwargs)
+        test_kwargs['sv_per'] = 10000
+        test_kwargs['num_steps'] = 200000
+        seed_retrain = test_kwargs['seed']
+        files = glob.glob(folder+'/*model*.zip')
+        sorted_models, _ = ga.order_by_sufix(files)
+        for ind_rtr in range(num_retrains):
+            for mod in sorted_models:
+                sv_folder = folder + '/retrain/rtr_'+str(ind_rtr)+'_' +\
+                    mod[:-4]+'/'
+                print(sv_folder)
+                test_kwargs['seed'] = seed_retrain + ind_rtr
+                ga.get_activity(folder, alg, sv_folder, model_name=mod,
+                                probs_nch=np.array([[0], [1]]),
+                                **test_kwargs)
 
 
 if __name__ == "__main__":
@@ -255,4 +267,4 @@ if __name__ == "__main__":
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
-        n_lstm=n_lstm, test_kwargs=test_kwargs)
+        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed)
