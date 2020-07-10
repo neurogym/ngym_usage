@@ -189,7 +189,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                                                  save_path=folder,
                                                  name_prefix='model')
         model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
-        model.save(f"{folder}/model")
+        model.save(f"{folder}/model_{num_timesteps}_steps.zip")
         plotting.plot_rew_across_training(folder=folder)
     if test_kwargs['test_retrain']:
         sv_folder = folder + '/test/'
