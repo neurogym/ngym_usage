@@ -193,9 +193,14 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         plotting.plot_rew_across_training(folder=folder)
     if test_kwargs['test_retrain']:
         sv_folder = folder + '/test/'
-        # test with only 2-choice blocks
         test_kwargs['test_retrain'] = 'test'
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+        # test on 2AFC task
+        sv_folder = folder + '/test_2AFC/'
+        test_kwargs['test_retrain'] = 'test'
+        ga.get_activity(folder, alg, sv_folder, probs_nch=np.array([[0], [1]]),
+                        **test_kwargs)
+
         # # retrain on 2-choice blocks
         # test_kwargs['test_retrain'] = 'retrain'
         # test_kwargs['sv_per'] = 5000
