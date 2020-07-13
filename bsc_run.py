@@ -198,7 +198,6 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         # test on 2AFC task
         sv_folder = folder + '/test_2AFC/'
         test_kwargs['test_retrain'] = 'test'
-        test_kwargs['rerun'] = True
         ga.get_activity(folder, alg, sv_folder, **test_kwargs)
 
         # # retrain on 2-choice blocks
