@@ -156,7 +156,7 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
 
 def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         rollout, num_trials, folder, n_thrds, n_lstm, rerun=False,
-        test_kwargs={'test_retrain': ''}, num_retrains=10, seed=0):
+        test_kwargs={}, num_retrains=10, seed=0):
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     files = glob.glob(folder+'/*model*.zip')
@@ -191,14 +191,10 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
         model.save(f"{folder}/model_{num_timesteps}_steps.zip")
         plotting.plot_rew_across_training(folder=folder)
-    if test_kwargs['test_retrain']:
-        sv_folder = folder + '/test/'
-        test_kwargs['test_retrain'] = 'test'
-        ga.get_activity(folder, alg, sv_folder, **test_kwargs)
-        # test on 2AFC task
-        sv_folder = folder + '/test_2AFC/'
-        test_kwargs['test_retrain'] = 'test'
-        ga.get_activity(folder, alg, sv_folder, **test_kwargs)
+    if len(test_kwargs) != 0:
+        for key in test_kwargs.keys():
+            sv_folder = folder + key
+            ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
 
         # # retrain on 2-choice blocks
         # test_kwargs['test_retrain'] = 'retrain'
@@ -260,7 +256,7 @@ if __name__ == "__main__":
     if hasattr(params, 'test_kwargs'):
         test_kwargs = params.test_kwargs
     else:
-        test_kwargs = {'test_retrain': False}
+        test_kwargs = {}
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
