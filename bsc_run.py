@@ -194,6 +194,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
     if len(test_kwargs) != 0:
         for key in test_kwargs.keys():
             sv_folder = folder + key
+            test_kwargs[key]['seed'] = seed
             ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
 
         # # retrain on 2-choice blocks
