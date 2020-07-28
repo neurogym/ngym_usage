@@ -113,6 +113,18 @@ def arg_parser():
     parser.add_argument('--balanced_probs', help='whether transition matrix is' +
                         ' side-balanced', type=bool, default=None)
 
+
+    # trial_hist evolution wrapper parameters
+    parser.add_argument('--ctx_dur',
+                        help='dur. of context in the trial-hist wrappr (trials)',
+                        type=int, default=None)
+    parser.add_argument('--num_contexts', help='number of contexts', type=int,
+                        default=None)
+    parser.add_argument('--ctx_ch_prob', help='prob of trans. mat. change',
+                        type=float, default=None)
+    parser.add_argument('--death_prob', help='prob. of starting next generation',
+                        type=float, default=None)
+
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
                         help='dur. of blck in the variable-nch wrapper (trials)',
@@ -179,7 +191,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                                       **task_kwargs)
                              for i in range(n_thrds)])
         model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
-                     n_cpu_tf_sess=n_thrds,
+                     n_cpu_tf_sess=n_thrds, tensorboard_log=None,
                      policy_kwargs={"feature_extraction": "mlp",
                                     "n_lstm": n_lstm},
                      **alg_kwargs)
