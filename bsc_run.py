@@ -113,7 +113,6 @@ def arg_parser():
     parser.add_argument('--balanced_probs', help='whether transition matrix is' +
                         ' side-balanced', type=bool, default=None)
 
-
     # trial_hist evolution wrapper parameters
     parser.add_argument('--ctx_dur',
                         help='dur. of context in the trial-hist wrappr (trials)',
@@ -124,6 +123,8 @@ def arg_parser():
                         type=float, default=None)
     parser.add_argument('--death_prob', help='prob. of starting next generation',
                         type=float, default=None)
+    parser.add_argument('--fix_2AFC', help='whether 2AFC is included in tr. mats',
+                        type=bool, default=None)
 
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
