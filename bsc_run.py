@@ -85,6 +85,8 @@ def arg_parser():
                         type=float, default=None)
     parser.add_argument('--ob_nch', help='Whether to provide num. channels',
                         type=bool, default=None)
+    parser.add_argument('--zero_irrelevant_stim', help='Whether to zero' +
+                        ' irrelevant stimuli', type=bool, default=None)
 
     # CV-learning task
     parser.add_argument('--th_stage',
