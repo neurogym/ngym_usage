@@ -16,6 +16,7 @@ import numpy as np
 import glob
 import importlib
 import argparse
+from copy import deepcopy as deepc
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.layers import Dense, LSTM, TimeDistributed, Input
 
@@ -84,7 +85,7 @@ def arg_parser():
     parser.add_argument('--folder', help='where to save the data and model',
                         type=str, default=None)
     parser.add_argument('--train_mode', help='RL or SL',
-                        type=str, default=None)    
+                        type=str, default=None)
     parser.add_argument('--alg', help='RL algorithm to use',
                         type=str, default=None)
     parser.add_argument('--task', help='task', type=str, default=None)
@@ -199,7 +200,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
     train_mode = train_mode or 'RL'
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
-    files = glob.glob(folder+'/*model*.zip')
+    files = glob.glob(folder+'/*model*')
     if len(files) == 0 or rerun:
         vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
                  'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
@@ -233,12 +234,15 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
             model.save(f"{folder}/model_{num_timesteps}_steps.zip")
             plotting.plot_rew_across_training(folder=folder)
         elif train_mode == 'SL':
-            del wrappers_kwargs['PassAction-v0']
-            del wrappers_kwargs['PassReward-v0']
-            env = make_env(env_id=task, rank=0, seed=seed, wrapps=wrappers_kwargs,
-                           n_args=n_args, **task_kwargs)
-            dataset = ngym.Dataset(env(), batch_size=sl_kwargs['btch_s'],
-                                   seq_len=rollout)
+            stps_ep = sl_kwargs['steps_per_epoch']
+            wraps_sl = deepc(wrappers_kwargs)
+            del wraps_sl['PassAction-v0']
+            del wraps_sl['PassReward-v0']
+            del wraps_sl['Monitor-v0']
+            env = make_env(env_id=task, rank=0, seed=seed, wrapps=wraps_sl,
+                           n_args=n_args, **task_kwargs)()
+            dataset = ngym.Dataset(env, batch_size=sl_kwargs['btch_s'],
+                                   seq_len=rollout, batch_first=True)
             obs_size = env.observation_space.shape[0]
             act_size = env.action_space.n
             model = define_model(seq_len=rollout, num_h=n_lstm, obs_size=obs_size,
@@ -247,33 +251,42 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                                  loss=sl_kwargs['loss'])
             # Train network
             data_generator = (dataset()
-                              for i in range(sl_kwargs['steps_per_epoch']))
+                              for i in range(stps_ep))
             model.fit(data_generator, verbose=1,
-                      steps_per_epoch=sl_kwargs['steps_per_epoch'])
-            model.save(main_folder+task+name)
+                      steps_per_epoch=stps_ep)
+            model.save(f"{folder}/model_{stps_ep}_steps")
 
     if len(test_kwargs) != 0:
         for key in test_kwargs.keys():
             sv_folder = folder + key
             test_kwargs[key]['seed'] = seed
-            ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
-
-        # # retrain on 2-choice blocks
-        # test_kwargs['test_retrain'] = 'retrain'
-        # test_kwargs['sv_per'] = 5000
-        # test_kwargs['num_steps'] = 4000000
-        # seed_retrain = test_kwargs['seed']
-        # files = glob.glob(folder+'/*model*.zip')
-        # sorted_models, _ = ga.order_by_sufix(files)
-        # for ind_rtr in range(num_retrains):
-        #     for mod in sorted_models:
-        #         sv_folder = folder + '/retrain/rtr_'+str(ind_rtr)+'_' +\
-        #             mod[:-4]+'/'
-        #         print(sv_folder)
-        #         test_kwargs['seed'] = seed_retrain + ind_rtr
-        #         ga.get_activity(folder, alg, sv_folder, model_name=mod,
-        #                         probs_nch=np.array([[0], [1]]), rerun=True,
-        #                         **test_kwargs)
+            if train_mode == 'RL':
+                ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+            elif train_mode == 'SL':
+                stps_ep = sl_kwargs['steps_per_epoch']
+                wraps_sl = deepc(wrappers_kwargs)
+                wraps_sl.update(test_kwargs[key]['wrappers'])
+                del wraps_sl['PassAction-v0']
+                del wraps_sl['PassReward-v0']
+                env = make_env(env_id=task, rank=0, seed=seed, wrapps=wraps_sl,
+                               n_args=n_args, **task_kwargs)()
+                obs_size = env.observation_space.shape[0]
+                act_size = env.action_space.n
+                model_test = define_model(seq_len=1, batch_size=1,
+                                          obs_size=obs_size, act_size=act_size,
+                                          stateful=sl_kwargs['stateful'],
+                                          num_h=n_lstm,
+                                          loss=sl_kwargs['loss'])
+                ld_f = folder+'model_'+str(stps_ep)+'_steps'.replace('//', '/')
+                model_test.load_weights(ld_f)
+                env.reset()
+                for ind_stp in range(sl_kwargs['test_steps']):
+                    obs = env.ob_now
+                    obs = obs[np.newaxis]
+                    obs = obs[np.newaxis]
+                    action = model_test.predict(obs)
+                    action = np.argmax(action, axis=-1)[0]
+                    _, _, _, _ = env.step(action)
 
 
 if __name__ == "__main__":
@@ -323,4 +336,5 @@ if __name__ == "__main__":
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
-        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed, train_mode=train_mode)
+        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed, train_mode=train_mode,
+        sl_kwargs=params.sl_kwargs)
