@@ -16,6 +16,9 @@ import numpy as np
 import glob
 import importlib
 import argparse
+from tensorflow.keras.models import Model, load_model
+from tensorflow.keras.layers import Dense, LSTM, TimeDistributed, Input
+
 sys.path.append(os.path.expanduser("~/gym"))
 sys.path.append(os.path.expanduser("~/stable-baselines"))
 sys.path.append(os.path.expanduser("~/neurogym"))
@@ -30,6 +33,25 @@ from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.callbacks import CheckpointCallback
+
+
+def define_model(seq_len, num_h, obs_size, act_size, batch_size,
+                 stateful, loss):
+    """
+    https://fairyonice.github.io/Stateful-LSTM-model-training-in-Keras.html
+    """
+    inp = Input(batch_shape=(batch_size, seq_len, obs_size), name="input")
+
+    rnn = LSTM(num_h, return_sequences=True, stateful=stateful,
+               name="RNN")(inp)
+
+    dens = TimeDistributed(Dense(act_size, activation='softmax',
+                                 name="dense"))(rnn)
+    model = Model(inputs=[inp], outputs=[dens])
+
+    model.compile(loss=loss, optimizer="Adam",  metrics=['accuracy'])
+
+    return model
 
 
 def test_env(env, kwargs, num_steps=100):
@@ -61,6 +83,8 @@ def arg_parser():
                         default=None)
     parser.add_argument('--folder', help='where to save the data and model',
                         type=str, default=None)
+    parser.add_argument('--train_mode', help='RL or SL',
+                        type=str, default=None)    
     parser.add_argument('--alg', help='RL algorithm to use',
                         type=str, default=None)
     parser.add_argument('--task', help='task', type=str, default=None)
@@ -171,7 +195,8 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
 
 def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
         rollout, num_trials, folder, n_thrds, n_lstm, rerun=False,
-        test_kwargs={}, num_retrains=10, seed=0):
+        test_kwargs={}, num_retrains=10, seed=0, train_mode=None, sl_kwargs=None):
+    train_mode = train_mode or 'RL'
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     files = glob.glob(folder+'/*model*.zip')
@@ -181,31 +206,52 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                  'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
                  'folder': folder, 'n_thrds': n_thrds, 'n_lstm': n_lstm}
         np.savez(folder + '/params.npz', **vars_)
-        if alg == "A2C":
-            from stable_baselines import A2C as algo
-        elif alg == "ACER":
-            from stable_baselines import ACER as algo
-        elif alg == "ACKTR":
-            from stable_baselines import ACKTR as algo
-        elif alg == "PPO2":
-            from stable_baselines import PPO2 as algo
-        env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
-                                      wrapps=wrappers_kwargs, n_args=n_args,
-                                      **task_kwargs)
-                             for i in range(n_thrds)])
-        model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
-                     n_cpu_tf_sess=n_thrds, tensorboard_log=None,
-                     policy_kwargs={"feature_extraction": "mlp",
-                                    "n_lstm": n_lstm},
-                     **alg_kwargs)
-        # this assumes 1 trial ~ 10 steps
-        sv_freq = 5*wrappers_kwargs['Monitor-v0']['sv_per']
-        checkpoint_callback = CheckpointCallback(save_freq=sv_freq,
-                                                 save_path=folder,
-                                                 name_prefix='model')
-        model.learn(total_timesteps=num_timesteps, callback=checkpoint_callback)
-        model.save(f"{folder}/model_{num_timesteps}_steps.zip")
-        plotting.plot_rew_across_training(folder=folder)
+        if train_mode == 'RL':
+            if alg == "A2C":
+                from stable_baselines import A2C as algo
+            elif alg == "ACER":
+                from stable_baselines import ACER as algo
+            elif alg == "ACKTR":
+                from stable_baselines import ACKTR as algo
+            elif alg == "PPO2":
+                from stable_baselines import PPO2 as algo
+            env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
+                                          wrapps=wrappers_kwargs, n_args=n_args,
+                                          **task_kwargs)
+                                 for i in range(n_thrds)])
+            model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
+                         n_cpu_tf_sess=n_thrds, tensorboard_log=None,
+                         policy_kwargs={"feature_extraction": "mlp",
+                                        "n_lstm": n_lstm},
+                         **alg_kwargs)
+            # this assumes 1 trial ~ 10 steps
+            sv_freq = 5*wrappers_kwargs['Monitor-v0']['sv_per']
+            chckpnt_cllbck = CheckpointCallback(save_freq=sv_freq,
+                                                save_path=folder,
+                                                name_prefix='model')
+            model.learn(total_timesteps=num_timesteps, callback=chckpnt_cllbck)
+            model.save(f"{folder}/model_{num_timesteps}_steps.zip")
+            plotting.plot_rew_across_training(folder=folder)
+        elif train_mode == 'SL':
+            del wrappers_kwargs['PassAction-v0']
+            del wrappers_kwargs['PassReward-v0']
+            env = make_env(env_id=task, rank=0, seed=seed, wrapps=wrappers_kwargs,
+                           n_args=n_args, **task_kwargs)
+            dataset = ngym.Dataset(env(), batch_size=sl_kwargs['btch_s'],
+                                   seq_len=rollout)
+            obs_size = env.observation_space.shape[0]
+            act_size = env.action_space.n
+            model = define_model(seq_len=rollout, num_h=n_lstm, obs_size=obs_size,
+                                 act_size=act_size, batch_size=sl_kwargs['btch_s'],
+                                 stateful=sl_kwargs['stateful'],
+                                 loss=sl_kwargs['loss'])
+            # Train network
+            data_generator = (dataset()
+                              for i in range(sl_kwargs['steps_per_epoch']))
+            model.fit(data_generator, verbose=1,
+                      steps_per_epoch=sl_kwargs['steps_per_epoch'])
+            model.save(main_folder+task+name)
+
     if len(test_kwargs) != 0:
         for key in test_kwargs.keys():
             sv_folder = folder + key
@@ -240,6 +286,7 @@ if __name__ == "__main__":
     n_args = vars(n_args)
     n_args = {k: n_args[k] for k in n_args.keys() if n_args[k] is not None}
     main_folder = n_args['folder'] + '/'
+    train_mode = n_args['train_mode']
     name, _ = gncfd(n_args)
     instance_folder = main_folder + name + '/'
     # this is done wo the monitor wrapper's parameter folder is updated
@@ -276,4 +323,4 @@ if __name__ == "__main__":
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
-        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed)
+        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed, train_mode=train_mode)
