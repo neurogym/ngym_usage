@@ -174,7 +174,7 @@ def update_dict(dict1, dict2):
     dict1.update((k, dict2[k]) for k in set(dict2).intersection(dict1))
 
 
-def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
+def make_env(env_id, rank, seed=0, wrapps={}, **kwargs):
     """
     Utility function for multiprocessed env.
     :param env_id: (str) the environment ID
@@ -186,27 +186,25 @@ def make_env(env_id, rank, seed=0, wrapps={}, n_args={}, **kwargs):
         env.seed(seed + rank)
         for wrap in wrapps.keys():
             if not (wrap == 'Monitor-v0' and rank != 0):
-                params_temp = wrapps[wrap]
-                update_dict(params_temp, n_args)
-                env = apply_wrapper(env, wrap, params_temp)
+                env = apply_wrapper(env, wrap, wrapps[wrap])
         return env
     set_global_seeds(seed)
     return _init
 
 
-def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
+def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
         rollout, num_trials, folder, n_thrds, n_lstm, rerun=False,
         test_kwargs={}, num_retrains=10, seed=0, train_mode=None, sl_kwargs=None):
     train_mode = train_mode or 'RL'
     env = test_env(task, kwargs=task_kwargs, num_steps=1000)
     num_timesteps = int(1000 * num_trials / (env.num_tr))
     files = glob.glob(folder+'/*model*')
+    vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
+             'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
+             'expl_params': expl_params, 'rollout': rollout, 'folder': folder,
+             'num_trials': num_trials, 'n_thrds': n_thrds, 'n_lstm': n_lstm}
+    np.savez(folder + '/params.npz', **vars_)
     if len(files) == 0 or rerun:
-        vars_ = {'alg': alg, 'alg_kwargs': alg_kwargs, 'task': task,
-                 'task_kwargs': task_kwargs, 'wrappers_kwargs': wrappers_kwargs,
-                 'n_args': n_args, 'rollout': rollout, 'num_trials': num_trials,
-                 'folder': folder, 'n_thrds': n_thrds, 'n_lstm': n_lstm}
-        np.savez(folder + '/params.npz', **vars_)
         if train_mode == 'RL':
             if alg == "A2C":
                 from stable_baselines import A2C as algo
@@ -217,8 +215,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
             elif alg == "PPO2":
                 from stable_baselines import PPO2 as algo
             env = SubprocVecEnv([make_env(env_id=task, rank=i, seed=seed,
-                                          wrapps=wrappers_kwargs, n_args=n_args,
-                                          **task_kwargs)
+                                          wrapps=wrappers_kwargs, **task_kwargs)
                                  for i in range(n_thrds)])
             model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
                          n_cpu_tf_sess=n_thrds, tensorboard_log=None,
@@ -240,7 +237,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
             del wraps_sl['PassReward-v0']
             del wraps_sl['Monitor-v0']
             env = make_env(env_id=task, rank=0, seed=seed, wrapps=wraps_sl,
-                           n_args=n_args, **task_kwargs)()
+                           **task_kwargs)()
             dataset = ngym.Dataset(env, batch_size=sl_kwargs['btch_s'],
                                    seq_len=rollout, batch_first=True)
             obs_size = env.observation_space.shape[0]
@@ -269,7 +266,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
                 del wraps_sl['PassAction-v0']
                 del wraps_sl['PassReward-v0']
                 env = make_env(env_id=task, rank=0, seed=seed, wrapps=wraps_sl,
-                               n_args=n_args, **task_kwargs)()
+                               **task_kwargs)()
                 obs_size = env.observation_space.shape[0]
                 act_size = env.action_space.n
                 model_test = define_model(seq_len=1, batch_size=1,
@@ -292,22 +289,22 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, n_args,
 if __name__ == "__main__":
     # get params from call
     n_arg_parser = arg_parser()
-    n_args, unknown_args = n_arg_parser.parse_known_args(sys.argv)
+    expl_params, unknown_args = n_arg_parser.parse_known_args(sys.argv)
     unkown_params = rest_arg_parser(unknown_args)
     if unkown_params:
         print('Unkown parameters: ', unkown_params)
-    n_args = vars(n_args)
-    n_args = {k: n_args[k] for k in n_args.keys() if n_args[k] is not None}
-    main_folder = n_args['folder'] + '/'
-    train_mode = n_args['train_mode']
-    name, _ = gncfd(n_args)
+    expl_params = vars(expl_params)
+    expl_params = {k: expl_params[k] for k in expl_params.keys()
+                   if expl_params[k] is not None}
+    main_folder = expl_params['folder'] + '/'
+    name, _ = gncfd(expl_params)
     instance_folder = main_folder + name + '/'
     # this is done wo the monitor wrapper's parameter folder is updated
-    n_args['folder'] = instance_folder
+    expl_params['folder'] = instance_folder
     if not os.path.exists(instance_folder):
         os.makedirs(instance_folder)
     # load parameters
-    print(main_folder)
+    print('Main folder: ', main_folder)
     sys.path.append(os.path.expanduser(main_folder))
     spec = importlib.util.spec_from_file_location("params",
                                                   main_folder+"/params.py")
@@ -315,11 +312,18 @@ if __name__ == "__main__":
     spec.loader.exec_module(params)
     # update general params
     gen_params = params.general_params
-    update_dict(gen_params, n_args)
+    update_dict(gen_params, expl_params)
     # update task params
     task_params = params.task_kwargs[gen_params['task']]
-    update_dict(task_params, n_args)
+    update_dict(task_params, expl_params)
+    # update wrappers params
+    wrappers_kwargs = params.wrapps
+    for wrap in wrappers_kwargs.keys():
+        if not wrap == 'Monitor-v0':
+            params_temp = wrappers_kwargs[wrap]
+            update_dict(params_temp, expl_params)
     # get params
+    train_mode = gen_params['train_mode']
     task = gen_params['task']
     alg = gen_params['alg']
     alg_kwargs = params.algs[alg]
@@ -334,7 +338,7 @@ if __name__ == "__main__":
     else:
         test_kwargs = {}
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
-        wrappers_kwargs=params.wrapps, n_args=n_args, rollout=rollout,
+        wrappers_kwargs=params.wrapps, expl_params=expl_params, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
         n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed, train_mode=train_mode,
         sl_kwargs=params.sl_kwargs)
