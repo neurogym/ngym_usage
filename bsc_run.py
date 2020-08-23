@@ -323,7 +323,7 @@ if __name__ == "__main__":
             params_temp = wrappers_kwargs[wrap]
             update_dict(params_temp, expl_params)
     # get params
-    train_mode = gen_params['train_mode']
+    tr_md = gen_params['train_mode'] if 'train_mode' in gen_params.keys() else 'RL'
     task = gen_params['task']
     alg = gen_params['alg']
     alg_kwargs = params.algs[alg]
@@ -333,12 +333,11 @@ if __name__ == "__main__":
     num_thrds = int(gen_params['num_thrds'])
     n_lstm = int(gen_params['n_lstm'])
     task_kwargs = params.task_kwargs[gen_params['task']]
-    if hasattr(params, 'test_kwargs'):
-        test_kwargs = params.test_kwargs
-    else:
-        test_kwargs = {}
+    # extra params
+    test_kwargs = params.test_kwargs if hasattr(params, 'test_kwargs') else {}
+    sl_kwargs = params.sl_kwargs if hasattr(params, 'sl_kwargs') else {}
     run(alg=alg, alg_kwargs=alg_kwargs, task=task, task_kwargs=task_kwargs,
         wrappers_kwargs=params.wrapps, expl_params=expl_params, rollout=rollout,
         num_trials=num_trials, folder=instance_folder, n_thrds=num_thrds,
-        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed, train_mode=train_mode,
-        sl_kwargs=params.sl_kwargs)
+        n_lstm=n_lstm, test_kwargs=test_kwargs, seed=seed, train_mode=tr_md,
+        sl_kwargs=sl_kwargs)
