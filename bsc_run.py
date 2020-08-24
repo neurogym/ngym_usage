@@ -319,9 +319,8 @@ if __name__ == "__main__":
     # update wrappers params
     wrappers_kwargs = params.wrapps
     for wrap in wrappers_kwargs.keys():
-        if not wrap == 'Monitor-v0':
-            params_temp = wrappers_kwargs[wrap]
-            update_dict(params_temp, expl_params)
+        params_temp = wrappers_kwargs[wrap]
+        update_dict(params_temp, expl_params)
     # get params
     tr_md = gen_params['train_mode'] if 'train_mode' in gen_params.keys() else 'RL'
     task = gen_params['task']
