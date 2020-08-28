@@ -220,8 +220,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
             model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
                          n_cpu_tf_sess=n_thrds, tensorboard_log=None,
                          policy_kwargs={"feature_extraction": "mlp",
-                                        "n_lstm": n_lstm},
-                         **alg_kwargs)
+                                        "n_lstm": n_lstm}, **alg_kwargs)
             # this assumes 1 trial ~ 10 steps
             sv_freq = 5*wrappers_kwargs['Monitor-v0']['sv_per']
             chckpnt_cllbck = CheckpointCallback(save_freq=sv_freq,
@@ -325,7 +324,7 @@ if __name__ == "__main__":
     tr_md = gen_params['train_mode'] if 'train_mode' in gen_params.keys() else 'RL'
     task = gen_params['task']
     alg = gen_params['alg']
-    alg_kwargs = params.algs[alg]
+    alg_kwargs = params.algs[alg] if alg is not None else {}
     seed = int(gen_params['seed'])
     num_trials = int(gen_params['num_trials'])
     rollout = int(gen_params['rollout'])
