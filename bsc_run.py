@@ -246,10 +246,8 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
                                  stateful=sl_kwargs['stateful'],
                                  loss=sl_kwargs['loss'])
             # Train network
-            data_generator = (dataset()
-                              for i in range(stps_ep))
-            model.fit(data_generator, verbose=1,
-                      steps_per_epoch=stps_ep)
+            data_generator = (dataset() for i in range(stps_ep))
+            model.fit(data_generator, verbose=1, steps_per_epoch=stps_ep)
             model.save(f"{folder}/model_{stps_ep}_steps")
 
     if len(test_kwargs) != 0:
