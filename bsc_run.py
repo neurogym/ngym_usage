@@ -113,6 +113,10 @@ def arg_parser():
     parser.add_argument('--zero_irrelevant_stim', help='Whether to zero' +
                         ' irrelevant stimuli', type=bool, default=None)
 
+    # NAltConditionalVisuomotor task parameters
+    parser.add_argument('--n_stims', help='number of stimuli', type=int,
+                        default=None)
+
     # CV-learning task
     parser.add_argument('--th_stage',
                         help='threshold to change the stage',
