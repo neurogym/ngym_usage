@@ -110,6 +110,8 @@ def arg_parser():
                         type=float, default=None)
     parser.add_argument('--ob_nch', help='Whether to provide num. channels',
                         type=bool, default=None)
+    parser.add_argument('--ob_histblock', help='Whether to provide hist block cue',
+                        type=bool, default=None)
     parser.add_argument('--zero_irrelevant_stim', help='Whether to zero' +
                         ' irrelevant stimuli', type=bool, default=None)
 
@@ -163,6 +165,12 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--blocks_probs', help='probability of each block',
                         type=float, nargs='+', default=None)
+
+    # reaction-time wrapper params
+    parser.add_argument('--urgency', help='float value that will be added to the' +
+                        ' reward to push the agent to respond quiclky (expected' +
+                        ' to be negative)',
+                        type=float, default=None)
 
     # monitor wrapper parameters
     parser.add_argument('--sv_fig',
