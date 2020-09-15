@@ -5,8 +5,6 @@ Created on Wed Apr  8 07:26:31 2020
 
 @author: manuel
 
-/home/.../shaping_run.py --folder test  --seed 4 --alg A2C --stages 3 4
-
 """
 import os
 from ops.utils import get_name_and_command_from_dict as gncfd
@@ -24,17 +22,21 @@ sys.path.append(os.path.expanduser("~/gym"))
 sys.path.append(os.path.expanduser("~/stable-baselines"))
 sys.path.append(os.path.expanduser("~/neurogym"))
 sys.path.append(os.path.expanduser("~/multiple_choice"))
+sys.path.append(os.path.expanduser("~/ngym_priors"))
 import get_activity as ga
 import gym
 import neurogym as ngym  # need to import it so ngym envs are registered
+import ngym_priors as ngym_p  # need to import it so ngym envs are registered
 from neurogym.utils import plotting
 from neurogym.wrappers import ALL_WRAPPERS
+from ngym_priors.wrappers import ALL_WRAPPERS as all_wrpps_p
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.callbacks import CheckpointCallback
 
+ALL_WRAPPERS.update(all_wrpps_p)
 
 def define_model(seq_len, num_h, obs_size, act_size, batch_size,
                  stateful, loss):
@@ -108,12 +110,17 @@ def arg_parser():
     # n-alternative task params
     parser.add_argument('--stim_scale', help='stimulus evidence',
                         type=float, default=None)
+    parser.add_argument('--sigma', help='noise added to the stimulus',
+                        type=float, default=None)
     parser.add_argument('--ob_nch', help='Whether to provide num. channels',
                         type=bool, default=None)
     parser.add_argument('--ob_histblock', help='Whether to provide hist block cue',
                         type=bool, default=None)
     parser.add_argument('--zero_irrelevant_stim', help='Whether to zero' +
                         ' irrelevant stimuli', type=bool, default=None)
+    parser.add_argument('--cohs',
+                        help='coherences to use for stimuli',
+                        type=float, nargs='+', default=None)
 
     # NAltConditionalVisuomotor task parameters
     parser.add_argument('--n_stims', help='number of stimuli', type=int,
@@ -158,6 +165,14 @@ def arg_parser():
                         type=float, default=None)
     parser.add_argument('--fix_2AFC', help='whether 2AFC is included in tr. mats',
                         type=bool, default=None)
+
+    # time-out wrapper parameters
+    parser.add_argument('--time_out', help='time-out after error', type=int,
+                        default=None)
+    parser.add_argument('--stim_dur_limit', help='upper limit for stimulus' +
+                        ' duration (should not be larger than stimulus period' +
+                        'actual limit will be randomly choose for each trial)',
+                        type=int, default=None)
 
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
