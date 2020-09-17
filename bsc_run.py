@@ -184,8 +184,14 @@ def arg_parser():
     # reaction-time wrapper params
     parser.add_argument('--urgency', help='float value that will be added to the' +
                         ' reward to push the agent to respond quiclky (expected' +
-                        ' to be negative)',
+                        ' to be negative)', type=float, default=None)
+
+    # noise wrapper params
+    parser.add_argument('--ev_incr', help='float value that allows gradually' +
+                        ' increasing the evidence: (obs = obs*dt*ev_incr+noise)',
                         type=float, default=None)
+    parser.add_argument('--std_noise', help='std for noise to add', type=float,
+                        default=None)
 
     # monitor wrapper parameters
     parser.add_argument('--sv_fig',
@@ -212,7 +218,7 @@ def make_env(env_id, rank, seed=0, wrapps={}, **kwargs):
         env = gym.make(env_id, **kwargs)
         env.seed(seed + rank)
         for wrap in wrapps.keys():
-            if not (wrap == 'Monitor-v0' and rank != 0):
+            if not (wrap == 'MonitorExtended-v0' and rank != 0):
                 env = apply_wrapper(env, wrap, wrapps[wrap])
         return env
     set_global_seeds(seed)
@@ -249,7 +255,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
                          policy_kwargs={"feature_extraction": "mlp",
                                         "n_lstm": n_lstm}, **alg_kwargs)
             # this assumes 1 trial ~ 10 steps
-            sv_freq = 5*wrappers_kwargs['Monitor-v0']['sv_per']
+            sv_freq = 5*wrappers_kwargs['MonitorExtended-v0']['sv_per']
             chckpnt_cllbck = CheckpointCallback(save_freq=sv_freq,
                                                 save_path=folder,
                                                 name_prefix='model')
@@ -261,7 +267,7 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
             wraps_sl = deepc(wrappers_kwargs)
             del wraps_sl['PassAction-v0']
             del wraps_sl['PassReward-v0']
-            del wraps_sl['Monitor-v0']
+            del wraps_sl['MonitorExtended-v0']
             env = make_env(env_id=task, rank=0, seed=seed, wrapps=wraps_sl,
                            **task_kwargs)()
             dataset = ngym.Dataset(env, batch_size=sl_kwargs['btch_s'],
