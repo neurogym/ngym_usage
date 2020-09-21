@@ -39,6 +39,13 @@ class Net(nn.Module):
 
 
 def train_network(envid):
+    """Supervised training networks.
+    
+    Save network in a path determined by environment ID.
+    
+    Args:
+        envid: str, environment ID.
+    """
     modelpath = get_modelpath(envid)
     config = {
         'dt': 100,
@@ -46,6 +53,7 @@ def train_network(envid):
         'lr': 1e-2,
         'batch_size': 16,
         'seq_len': 100,
+        'envid': envid,
     }
 
     env_kwargs = {'dt': config['dt']}
@@ -127,6 +135,16 @@ def infer_test_timing(env):
 
 
 def run_network(envid):
+    """Run trained networks for analysis.
+    
+    Args:
+        envid: str, Environment ID
+    
+    Returns:
+        activity: a list of activity matrices
+        info: pandas dataframe, each row is information of a trial
+        config: dict of network, training configurations
+    """
     modelpath = get_modelpath(envid)
     with open(modelpath / 'config.json') as f:
         config = json.load(f)
@@ -196,7 +214,7 @@ def get_conditions(info):
     for c in conditions:
         try:
             n_cond = len(pd.unique(info[c]))
-            if n_cond < 5:
+            if 1 < n_cond < 5:
                 new_conditions.append(c)
         except TypeError:
             pass
@@ -214,16 +232,18 @@ def plot_activity_by_condition(activity, info, config):
             a = activity[info[condition] == value]
             plt.plot(t_plot, a.mean(axis=0).mean(axis=-1), label=str(value))
         plt.legend(title=condition, loc='center left', bbox_to_anchor=(1.0, 0.5))
-
+        
         # os.makedirs(FIGUREPATH / path, exist_ok=True)
         
 
 def plot_example_units_by_condition(activity, info, config):
-    example_ids = np.array([0, 1])
-    
+    conditions = get_conditions(info)
+    if len(conditions) < 1:
+        return
+
+    example_ids = np.array([0, 1])    
     for example_id in example_ids:        
         example_activity = activity[:, :, example_id]
-        conditions = get_conditions(info)
         fig, axes = plt.subplots(
                 len(conditions), 1,  figsize=(1.2, 0.8 * len(conditions)),
                 sharex=True)
@@ -266,10 +286,10 @@ def plot_pca_by_condition(activity, info, config):
 
 if __name__ == '__main__':
     envid = 'PerceptualDecisionMaking-v0'
-    # train_network(envid)
+    train_network(envid)
     activity, info, config = run_network(envid)
-    # plot_average_activity(activity, info, config)
-    # plot_activity_by_condition(activity, info, config)
-    # plot_example_units_by_condition(activity, info, config)
+    plot_average_activity(activity, info, config)
+    plot_activity_by_condition(activity, info, config)
+    plot_example_units_by_condition(activity, info, config)
     plot_pca_by_condition(activity, info, config)
     
