@@ -192,8 +192,16 @@ def get_conditions(info):
     """Get a list of task conditions to plot."""
     conditions = info.columns
     # This condition's unique value should be less than 5
-    conditions = [c for c in conditions if len(pd.unique(info[c])) < 5]
-    return conditions
+    new_conditions = list()
+    for c in conditions:
+        try:
+            n_cond = len(pd.unique(info[c]))
+            if n_cond < 5:
+                new_conditions.append(c)
+        except TypeError:
+            pass
+        
+    return new_conditions
 
 
 def plot_activity_by_condition(activity, info, config):
