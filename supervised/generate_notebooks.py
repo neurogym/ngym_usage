@@ -16,6 +16,7 @@ def get_linenumber(m):
     except AttributeError:
         return -1
 
+
 # Get functions from module
 modulename = 'train_and_analysis_template'
 module = importlib.import_module(modulename)
