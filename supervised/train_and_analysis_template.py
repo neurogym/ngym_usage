@@ -196,7 +196,7 @@ def run_network(envid):
     return activity, info, config
 
 
-def plot_average_activity(activity, info, config):
+def analysis_average_activity(activity, info, config):
     # Load and preprocess results
     plt.figure(figsize=(1.2, 0.8))
     t_plot = np.arange(activity.shape[1]) * config['dt']
@@ -222,7 +222,7 @@ def get_conditions(info):
     return new_conditions
 
 
-def plot_activity_by_condition(activity, info, config):
+def analysis_activity_by_condition(activity, info, config):
     conditions = get_conditions(info)
     for condition in conditions:
         values = pd.unique(info[condition])
@@ -236,7 +236,7 @@ def plot_activity_by_condition(activity, info, config):
         # os.makedirs(FIGUREPATH / path, exist_ok=True)
         
 
-def plot_example_units_by_condition(activity, info, config):
+def analysis_example_units_by_condition(activity, info, config):
     conditions = get_conditions(info)
     if len(conditions) < 1:
         return
@@ -262,7 +262,7 @@ def plot_example_units_by_condition(activity, info, config):
                 ax.set_title('Unit {:d}'.format(example_id + 1))
 
 
-def plot_pca_by_condition(activity, info, config):
+def analysis_pca_by_condition(activity, info, config):
     # Reshape activity to (N_trial x N_time, N_neuron)
     activity_reshape = np.reshape(activity, (-1, activity.shape[-1]))
     pca = PCA(n_components=2)
@@ -288,8 +288,8 @@ if __name__ == '__main__':
     envid = 'PerceptualDecisionMaking-v0'
     train_network(envid)
     activity, info, config = run_network(envid)
-    plot_average_activity(activity, info, config)
-    plot_activity_by_condition(activity, info, config)
-    plot_example_units_by_condition(activity, info, config)
-    plot_pca_by_condition(activity, info, config)
+    analysis_average_activity(activity, info, config)
+    analysis_activity_by_condition(activity, info, config)
+    analysis_example_units_by_condition(activity, info, config)
+    analysis_pca_by_condition(activity, info, config)
     

@@ -9,10 +9,10 @@ all_envs = ngym.all_envs(tag='supervised')
 skip_envs = ['Detection-v0', 'ReachingDelayResponse-v0']
 
 # all_envs = [all_envs[2]]
-all_envs = all_envs[all_envs.index('ProbabilisticReasoning-v0'):]
 
 # Skipping 'MotorTiming-v0' now because can't make all period same length
 skip_analysis_envs = ['MotorTiming-v0']
+
 
 for envid in all_envs:
     if envid in skip_envs:
@@ -30,5 +30,3 @@ for envid in all_envs:
     ta.plot_activity_by_condition(activity, info, config)
     ta.plot_example_units_by_condition(activity, info, config)
     ta.plot_pca_by_condition(activity, info, config)
-
-    
