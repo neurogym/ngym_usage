@@ -59,10 +59,31 @@ def auto_generate_notebook(envid):
     # Initial code block
     with open(modulename + '.py', 'r') as f:
         codelines = f.readlines()
+
+    # Beginning text
+    badge = 'https://colab.research.google.com/assets/colab-badge.svg'
+    link = 'https://colab.research.google.com/github/neurogym/ngym_usage' \
+           '/blob/master/supervised/auto_notebooks/{:s}.ipynb'.format(envid)
+    text = """[![Open In Colab]({:s})]({:s})""".format(badge, link)
+
+    cells = [nbf.v4.new_markdown_cell(text)]
+
+    # Local install if on colab
+    text = '### Install packages if on Colab'
+    cells += [nbf.v4.new_markdown_cell(text)]
+
+    code = "# Uncomment following lines to install\n"\
+           "# ! pip install gym   # Install gym\n" +\
+           "# ! git clone https://github.com/gyyang/neurogym.git  # Install " \
+           "neurogym\n"\
+           "# %cd neurogym/\n"\
+           "# ! pip install -e ."
+    cells += [nbf.v4.new_code_cell(code)]
+
     # Everything before first function/class
     code = ''.join(codelines[:get_linenumber(members[0])])
     code = code + "envid = '{:s}'".format(envid)
-    cells = [nbf.v4.new_code_cell(code)]
+    cells += [nbf.v4.new_code_cell(code)]
 
     func_to_script_list = ['train_network', 'run_network']
     for name, obj in members:
