@@ -81,19 +81,37 @@ def auto_generate_notebook(envid):
     cells += [nbf.v4.new_code_cell(code)]
 
     # Everything before first function/class
+    text = '### Import packages'
+    cells += [nbf.v4.new_markdown_cell(text)]
+
     code = ''.join(codelines[:get_linenumber(members[0])])
     code = code + "envid = '{:s}'".format(envid)
     cells += [nbf.v4.new_code_cell(code)]
 
+    first_analysis = True
     func_to_script_list = ['train_network', 'run_network']
     for name, obj in members:
         code = inspect.getsource(obj)
+
+        if name == 'train_network':  # TODO: Need to change to include RL
+            text = '### Train network'
+            cells += [nbf.v4.new_markdown_cell(text)]
+        elif name == 'run_network':
+            text = '### Run network after training for analysis'
+            cells += [nbf.v4.new_markdown_cell(text)]
+        elif name in ['Net', 'Model']:
+            text = '### Define network'
+            cells += [nbf.v4.new_markdown_cell(text)]
 
         if name in func_to_script_list:
             # Turn function into script
             code = func_to_script(code)
 
         if name.find('analysis_') == 0:  # starts with this
+            if first_analysis:
+                text = '### General analysis'
+                cells += [nbf.v4.new_markdown_cell(text)]
+                first_analysis = False
             # Add a line that's running this function
             code = code + '\n' + code[4:code.find('\n') - 1] # 4 for "def "
 

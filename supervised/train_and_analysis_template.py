@@ -141,7 +141,8 @@ def run_network(envid):
         envid: str, Environment ID
     
     Returns:
-        activity: a list of activity matrices
+        activity: a list of activity matrices, each matrix has shape (
+        N_time, N_neuron)
         info: pandas dataframe, each row is information of a trial
         config: dict of network, training configurations
     """
