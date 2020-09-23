@@ -112,7 +112,6 @@ def train_network(envid, alg='ACER', num_steps=100000, seed=0, wrappers_kwargs={
                                         save_path=modelpath,
                                         name_prefix='model')
     model.learn(total_timesteps=num_steps, callback=chckpnt_cllbck)
-    model.save(modelpath / 'model_{num_steps}_steps.zip')
     print('Finished Training')
 
 
@@ -142,7 +141,7 @@ def run_network(envid, num_steps=10**5):
         config: dict of network, training configurations
     """
     modelpath = get_modelpath(envid)
-    files = glob.glob(modelpath+'/*')
+    files = glob.glob(str(modelpath)+'/model*')
     if len(files) > 0:
         with open(modelpath / 'config.json') as f:
             config = json.load(f)
@@ -153,7 +152,7 @@ def run_network(envid, num_steps=10**5):
         sorted_models, last_model = order_by_sufix(files)
         model_name = sorted_models[-1]
         algo = get_alg(config['alg'])
-        model = algo.load(modelpath+'/'+model_name, tensorboard_log=None,
+        model = algo.load(modelpath / model_name, tensorboard_log=None,
                           custom_objects={'verbose': 0})
 
         # Environment
@@ -163,17 +162,15 @@ def run_network(envid, num_steps=10**5):
         env.reset(no_step=True)
         # Instantiate the network and print information
         activity = list()
-        info = pd.DataFrame()
         state_mat = []
-        gt = []
         ob = env.reset()
         _states = None
         done = False
         info_df = pd.DataFrame()
         for stp in range(int(num_steps)):
             ob = np.reshape(ob, (1, ob.shape[0]))
-            done = [done] + [False for _ in range(config['num_threads']-1)]
-            action, _states = model.predict(extend_obs(ob, config['num_threads']),
+            done = [done] + [False for _ in range(config['n_thrds']-1)]
+            action, _states = model.predict(extend_obs(ob, config['n_thrds']),
                                             state=_states, mask=done)
             action = action[0]
             ob, rew, done, info = env.step(action)
@@ -182,7 +179,7 @@ def run_network(envid, num_steps=10**5):
             if isinstance(info, (tuple, list)):
                 info = info[0]
                 action = action[0]
-            state_mat.append(_states)
+            state_mat.append(_states[0, int(_states.shape[1]/2):])
             if info['new_trial']:
                 gt = env.gt_now
                 correct = action == gt
@@ -194,6 +191,7 @@ def run_network(envid, num_steps=10**5):
                 activity.append(np.array(state_mat))
                 state_mat = []
         env.close()
+        return activity, info_df, config
 
 
 def order_by_sufix(file_list):
@@ -209,5 +207,9 @@ def order_by_sufix(file_list):
 
 if __name__ == '__main__':
     envid = 'PerceptualDecisionMaking-v0'
-    train_network(envid)
+    # train_network(envid)
     activity, info, config = run_network(envid)
+    print(len(activity))
+    print(activity[0].shape)
+    print(info)
+    print(config)
