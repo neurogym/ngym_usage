@@ -135,4 +135,4 @@ dmypy.json
 yang19/files/
 transferlearning/files/
 supervised/files
-supervised/auto_notebooks/files
+**/files
