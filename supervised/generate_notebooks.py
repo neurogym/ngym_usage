@@ -152,9 +152,9 @@ def auto_generate_notebook(envid, learning='supervised'):
 
 
 if __name__ == '__main__':
-    # all_envs = ngym.all_envs(tag='supervised')
-    # for envid in all_envs:
-    #     auto_generate_notebook(envid, learning='supervised')
+    all_envs = ngym.all_envs(tag='supervised')
+    for envid in all_envs:
+        auto_generate_notebook(envid, learning='supervised')
 
     all_envs = ngym.all_envs()
     for envid in all_envs:
