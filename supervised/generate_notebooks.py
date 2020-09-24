@@ -81,7 +81,7 @@ def auto_generate_notebook(envid, learning='supervised'):
         modulename = 'RL_train'
     else:
         raise ValueError('Unknown learning', learning)
-    codeurl = ROOTURL + learning
+    codeurl = ROOTURL + learning + '/'
     # From training code
     train_members = get_members(modulename)
     # Common analysis code
