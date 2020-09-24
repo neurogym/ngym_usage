@@ -15,7 +15,7 @@ import pandas as pd
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from neurogym.wrappers import ALL_WRAPPERS
-from stable_baselines.common.vec_env import SubprocVecEnv
+from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines.common import set_global_seeds
 from stable_baselines.common.policies import LstmPolicy
 from stable_baselines.common.callbacks import CheckpointCallback
@@ -70,8 +70,7 @@ def get_alg(alg):
     return algo
 
 
-def train_network(envid, alg='ACER', num_steps=100000, seed=0, wrappers_kwargs={},
-                  task_kwargs={}, n_thrds=1, rollout=20, n_lstm=64, alg_kwargs={}):
+def train_network(envid):
     """Supervised training networks.
 
     Save network in a path determined by environment ID.
@@ -79,39 +78,46 @@ def train_network(envid, alg='ACER', num_steps=100000, seed=0, wrappers_kwargs={
     Args:
         envid: str, environment ID.
     """
+
     modelpath = get_modelpath(envid)
     config = {
         'dt': 100,
-        'hidden_size': n_lstm,
+        'hidden_size': 64,
         'lr': 1e-2,
-        'alg': alg,
-        'rollout': rollout,
-        'n_thrds': n_thrds,
-        'wrappers_kwargs': wrappers_kwargs,
-        'seed': seed,
+        'alg': 'ACER',
+        'rollout': 20,
+        'n_thrds': 1,
+        'wrappers_kwargs': {},
+        'alg_kwargs': {},
+        'seed': 0,
+        # 'num_steps': 100000,
+        'num_steps': 100,
         'envid': envid,
     }
 
     env_kwargs = {'dt': config['dt']}
-    env_kwargs.update(task_kwargs)
     config['env_kwargs'] = env_kwargs
 
     # Save config
     with open(modelpath / 'config.json', 'w') as f:
         json.dump(config, f)
-    algo = get_alg(alg)
+    algo = get_alg(config['alg'])
     # Make supervised dataset
-    env = SubprocVecEnv([make_env(env_id=envid, rank=i, seed=seed,
-                                  wrapps=wrappers_kwargs, **env_kwargs)
-                         for i in range(n_thrds)])
-    model = algo(LstmPolicy, env, verbose=0, n_steps=rollout,
-                 n_cpu_tf_sess=n_thrds, tensorboard_log=None,
+    make_envs = [make_env(env_id=envid, rank=i, seed=config['seed'],
+                                  wrapps=config['wrappers_kwargs'],
+                                  **env_kwargs)
+                         for i in range(config['n_thrds'])]
+    # env = SubprocVecEnv(make_envs)
+    env = DummyVecEnv(make_envs)  # Less efficient but more robust
+    model = algo(LstmPolicy, env, verbose=0, n_steps=config['rollout'],
+                 n_cpu_tf_sess=config['n_thrds'], tensorboard_log=None,
                  policy_kwargs={"feature_extraction": "mlp",
-                                "n_lstm": n_lstm}, **alg_kwargs)
-    chckpnt_cllbck = CheckpointCallback(save_freq=int(num_steps/10),
+                                "n_lstm": config['hidden_size']},
+                 **config['alg_kwargs'])
+    chckpnt_cllbck = CheckpointCallback(save_freq=int(config['num_steps']/10),
                                         save_path=modelpath,
                                         name_prefix='model')
-    model.learn(total_timesteps=num_steps, callback=chckpnt_cllbck)
+    model.learn(total_timesteps=config['num_steps'], callback=chckpnt_cllbck)
     print('Finished Training')
 
 
@@ -129,7 +135,18 @@ def extend_obs(ob, num_threads):
     return np.concatenate((ob, np.zeros((num_threads-sh[0], sh[1]))))
 
 
-def run_network(envid, num_steps=10**5):
+def order_by_sufix(file_list):
+    file_list = [os.path.basename(x) for x in file_list]
+    flag = 'model.zip' in file_list
+    file_list = [x for x in file_list if x != 'model.zip']
+    sfx = [int(x[x.find('_')+1:x.rfind('_')]) for x in file_list]
+    sorted_list = [x for _, x in sorted(zip(sfx, file_list))]
+    if flag:
+        sorted_list.append('model.zip')
+    return sorted_list, np.max(sfx)
+
+
+def run_network(envid):
     """Run trained networks for analysis.
 
     Args:
@@ -167,6 +184,8 @@ def run_network(envid, num_steps=10**5):
         _states = None
         done = False
         info_df = pd.DataFrame()
+        # num_steps = 10 ** 5
+        num_steps = 10 ** 3
         for stp in range(int(num_steps)):
             ob = np.reshape(ob, (1, ob.shape[0]))
             done = [done] + [False for _ in range(config['n_thrds']-1)]
@@ -188,21 +207,19 @@ def run_network(envid, num_steps=10**5):
                 trial_info.update({'correct': correct, 'choice': action})
                 info_df = info_df.append(trial_info, ignore_index=True)
                 # Log stimulus period activity
-                activity.append(np.array(state_mat))
+                state_mat = np.array(state_mat)
+                
+                # Excluding decision period if exists
+                if 'decision' in env.start_ind:
+                    state_mat = state_mat[:env.start_ind['decision']]
+                
+                activity.append(state_mat)
                 state_mat = []
         env.close()
-        return activity, info_df, config
 
-
-def order_by_sufix(file_list):
-    file_list = [os.path.basename(x) for x in file_list]
-    flag = 'model.zip' in file_list
-    file_list = [x for x in file_list if x != 'model.zip']
-    sfx = [int(x[x.find('_')+1:x.rfind('_')]) for x in file_list]
-    sorted_list = [x for _, x in sorted(zip(sfx, file_list))]
-    if flag:
-        sorted_list.append('model.zip')
-    return sorted_list, np.max(sfx)
+        activity = np.array(activity)
+        info = info_df
+        return activity, info, config
 
 
 if __name__ == '__main__':
