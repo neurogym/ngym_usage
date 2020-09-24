@@ -67,9 +67,9 @@ def func_to_script(code):
 COLABURL = 'https://colab.research.google.com/github/'
 ROOTURL = 'neurogym/ngym_usage/blob/master/supervised/auto_notebooks/'
 
+
 def auto_generate_notebook(envid, learning='supervised'):
-    installation_code = "# Uncomment following lines to install\n"\
-           "# ! pip install gym   # Install gym\n" +\
+    installation_code = "# ! pip install gym   # Install gym\n" +\
            "# ! git clone https://github.com/gyyang/neurogym.git  # Install " \
            "neurogym\n"\
            "# %cd neurogym/\n"\
@@ -79,9 +79,13 @@ def auto_generate_notebook(envid, learning='supervised'):
         modulename = 'supervised_train'
     elif learning == 'rl':
         modulename = 'RL_train'
-        installation_code += '# ! pip install stable-baselines\n'
+        installation_code = '# %tensorflow_version 1.x\n' +\
+                            '# ! pip install --upgrade stable-baselines  # ' \
+                            'install latest version\n' + \
+                            installation_code
     else:
         raise ValueError('Unknown learning', learning)
+    installation_code = "# Uncomment following lines to install\n" + installation_code
     codeurl = ROOTURL + learning + '/'
     # From training code
     train_members = get_members(modulename)
