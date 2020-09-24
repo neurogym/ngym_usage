@@ -17,22 +17,32 @@ def get_linenumber(m):
         return -1
 
 
-# Get functions from module
-modulename = 'train_and_analysis_template'
-module = importlib.import_module(modulename)
-members = inspect.getmembers(module)  # get all members
-# members = [m for m in members if inspect.isfunction(m[1])]  # keep all functions
-m_tmp = list()
-for m in members:
-    try:
-        tmp_module = m[1].__module__
-        if tmp_module == modulename:
-            m_tmp.append(m)
-    except AttributeError:
-        pass
+def get_members(modulename):
+    """"Get all members defined in a module.
 
-members = m_tmp          
-members.sort(key=get_linenumber)  # sort by line number
+    Args:
+        modulename: str, modulename
+
+    Returns:
+        members: list of (name, object) pairs
+    """
+    # Get functions from module
+    # modulename = 'train_and_analysis_template'
+    module = importlib.import_module(modulename)
+    members = inspect.getmembers(module)  # get all members
+    # members = [m for m in members if inspect.isfunction(m[1])]  # keep all functions
+    m_tmp = list()
+    for m in members:
+        try:
+            tmp_module = m[1].__module__
+            if tmp_module == modulename:
+                m_tmp.append(m)
+        except AttributeError:
+            pass
+
+    members = m_tmp
+    members.sort(key=get_linenumber)  # sort by line number
+    return members
 
 
 def func_to_script(code):
@@ -54,7 +64,30 @@ def func_to_script(code):
     return code
 
 
-def auto_generate_notebook(envid):
+COLABURL = 'https://colab.research.google.com/github/'
+ROOTURL = 'neurogym/ngym_usage/blob/master/supervised/auto_notebooks/'
+
+def auto_generate_notebook(envid, learning='supervised'):
+    installation_code = "# Uncomment following lines to install\n"\
+           "# ! pip install gym   # Install gym\n" +\
+           "# ! git clone https://github.com/gyyang/neurogym.git  # Install " \
+           "neurogym\n"\
+           "# %cd neurogym/\n"\
+           "# ! pip install -e ."
+
+    if learning == 'supervised':
+        modulename = 'supervised_train'
+    elif learning == 'rl':
+        modulename = 'RL_train'
+    else:
+        raise ValueError('Unknown learning', learning)
+    codeurl = ROOTURL + learning
+    # From training code
+    train_members = get_members(modulename)
+    # Common analysis code
+    analysis_members = get_members('train_and_analysis_template')
+    members = train_members + analysis_members
+
     nb = nbf.v4.new_notebook()
     # Initial code block
     with open(modulename + '.py', 'r') as f:
@@ -62,8 +95,7 @@ def auto_generate_notebook(envid):
 
     # Beginning text
     badge = 'https://colab.research.google.com/assets/colab-badge.svg'
-    link = 'https://colab.research.google.com/github/neurogym/ngym_usage' \
-           '/blob/master/supervised/auto_notebooks/{:s}.ipynb'.format(envid)
+    link = '{:s}{:s}{:s}.ipynb'.format(COLABURL, codeurl, envid)
     text = """[![Open In Colab]({:s})]({:s})""".format(badge, link)
 
     cells = [nbf.v4.new_markdown_cell(text)]
@@ -71,14 +103,7 @@ def auto_generate_notebook(envid):
     # Local install if on colab
     text = '### Install packages if on Colab'
     cells += [nbf.v4.new_markdown_cell(text)]
-
-    code = "# Uncomment following lines to install\n"\
-           "# ! pip install gym   # Install gym\n" +\
-           "# ! git clone https://github.com/gyyang/neurogym.git  # Install " \
-           "neurogym\n"\
-           "# %cd neurogym/\n"\
-           "# ! pip install -e ."
-    cells += [nbf.v4.new_code_cell(code)]
+    cells += [nbf.v4.new_code_cell(installation_code)]
 
     # Everything before first function/class
     text = '### Import packages'
@@ -122,11 +147,15 @@ def auto_generate_notebook(envid):
     #     nb['cells'] = [nbf.v4.new_markdown_cell(text),
     #                nbf.v4.new_code_cell(code) ]
 
-    fname = Path('.') / 'auto_notebooks' / (envid + '.ipynb')
+    fname = Path('.') / 'auto_notebooks' / learning / (envid + '.ipynb')
     nbf.write(nb, fname)
 
 
 if __name__ == '__main__':
-    all_envs = ngym.all_envs(tag='supervised')
+    # all_envs = ngym.all_envs(tag='supervised')
+    # for envid in all_envs:
+    #     auto_generate_notebook(envid, learning='supervised')
+
+    all_envs = ngym.all_envs()
     for envid in all_envs:
-        auto_generate_notebook(envid)
+        auto_generate_notebook(envid, learning='rl')
