@@ -73,12 +73,13 @@ def auto_generate_notebook(envid, learning='supervised'):
            "# ! git clone https://github.com/gyyang/neurogym.git  # Install " \
            "neurogym\n"\
            "# %cd neurogym/\n"\
-           "# ! pip install -e ."
+           "# ! pip install -e .\n"
 
     if learning == 'supervised':
         modulename = 'supervised_train'
     elif learning == 'rl':
         modulename = 'RL_train'
+        installation_code += '# ! pip install stable-baselines\n'
     else:
         raise ValueError('Unknown learning', learning)
     codeurl = ROOTURL + learning + '/'
