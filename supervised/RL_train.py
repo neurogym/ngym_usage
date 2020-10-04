@@ -142,7 +142,7 @@ def run_network(envid, num_steps=10**5):
         config: dict of network, training configurations
     """
     modelpath = get_modelpath(envid)
-    files = glob.glob(modelpath+'/*')
+    files = glob.glob(modelpath)
     if len(files) > 0:
         with open(modelpath / 'config.json') as f:
             config = json.load(f)
@@ -209,5 +209,5 @@ def order_by_sufix(file_list):
 
 if __name__ == '__main__':
     envid = 'PerceptualDecisionMaking-v0'
-    train_network(envid)
+    # train_network(envid)
     activity, info, config = run_network(envid)
