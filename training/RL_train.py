@@ -158,7 +158,11 @@ def run_network(envid):
         config: dict of network, training configurations
     """
     modelpath = get_modelpath(envid)
+<<<<<<< HEAD:supervised/RL_train.py
+    files = glob.glob(modelpath)
+=======
     files = glob.glob(str(modelpath)+'/model*')
+>>>>>>> e1dd02c1ce0e55fb6bc226e2ef38777adc3fa669:training/RL_train.py
     if len(files) > 0:
         with open(modelpath / 'config.json') as f:
             config = json.load(f)
