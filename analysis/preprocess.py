@@ -34,9 +34,12 @@ def get_rate(spikes, times=None, bandwidth=0.05, kernel='gaussian'):
     bins = np.array(times) - dt / 2
     bins = np.append(bins, bins[-1] + dt)
 
-    kde = KernelDensity(kernel=kernel, bandwidth=bandwidth)
-    kde = kde.fit(all_spikes[:, np.newaxis])
-    rate = np.exp(kde.score_samples(times[:, np.newaxis])) * len(all_spikes)
+    if len(all_spikes) == 0:
+        rate = np.zeros_like(times)
+    else:
+        kde = KernelDensity(kernel=kernel, bandwidth=bandwidth)
+        kde = kde.fit(all_spikes[:, np.newaxis])
+        rate = np.exp(kde.score_samples(times[:, np.newaxis])) * len(all_spikes)
 
     # For debugging, plain histogram
     # rate, bins = np.histogram(all_spikes, bins=bins)
@@ -107,14 +110,13 @@ def get_trial_spikes_bytrials(file, i_neuron, trial_inds, align='start_time',
     trials = file.trials
     trial_spikes = []  # spike times of different trials
     neuron_spikes = file.units.spike_times_index[i_neuron]
+    align_times = trials[align].data[:]
     for i_trial in trial_inds:
-        align_time = trials[align].data[i_trial]
+        align_time = align_times[i_trial]
 
         if t_offset is None:
             start_time = align_time - 1
             stop_time = align_time + 3
-            # start_time = trials['start_time'].data[i_trial]
-            # stop_time = trials['stop_time'].data[i_trial]
         else:
             start_time = align_time + t_offset[0]
             stop_time = align_time + t_offset[1]
