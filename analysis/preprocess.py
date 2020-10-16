@@ -1,10 +1,14 @@
 """Preprocessing for analysis."""
 
 import numpy as np
-from sklearn.neighbors import KernelDensity
+from neo.core import SpikeTrain
+from elephant.kernels import GaussianKernel
+import quantities as qt
+
+from analysis.statistics import myrate
 
 
-def get_rate(spikes, times=None, bandwidth=0.05, kernel='gaussian'):
+def get_rate(spikes, t_start=0, t_stop=1, sampling_period=0.01):
     """Get rate for a list of spikes across trials.
 
     Args:
@@ -15,39 +19,15 @@ def get_rate(spikes, times=None, bandwidth=0.05, kernel='gaussian'):
         rate: a list of firing rate
         times: the time points of the estimated rates
     """
-    try:
-        all_spikes = np.concatenate(spikes)
-        n_spike_list = len(spikes)
-    except ValueError:
-        all_spikes = spikes
-        n_spike_list = 1
 
-    if times is None:
-        dt = 0.02
-        start = (np.min(all_spikes) + 0.3) // dt
-        stop = (np.max(all_spikes) - 0.3) // dt
-        times = np.arange(start, stop) * dt
-    else:
-        dt = times[1] - times[0]
-
-    times = np.array(times)
-    bins = np.array(times) - dt / 2
-    bins = np.append(bins, bins[-1] + dt)
-
-    if len(all_spikes) == 0:
-        rate = np.zeros_like(times)
-    else:
-        kde = KernelDensity(kernel=kernel, bandwidth=bandwidth)
-        kde = kde.fit(all_spikes[:, np.newaxis])
-        rate = np.exp(kde.score_samples(times[:, np.newaxis])) * len(all_spikes)
-
-    # For debugging, plain histogram
-    # rate, bins = np.histogram(all_spikes, bins=bins)
-    # rate = rate/dt
-
-    times = (bins[:-1] + bins[1:]) / 2
-    rate = rate / n_spike_list
-    return rate, times
+    t_cut = 0.5
+    t_start = t_start - t_cut
+    t_stop = t_stop + t_cut
+    rate, times = myrate(spikes, sampling_period=sampling_period,
+                  kernel=GaussianKernel(0.1 * qt.s),
+                  t_start=t_start, t_stop=t_stop)
+    i_cut = int(t_cut / sampling_period)
+    return rate[i_cut:-i_cut], times[i_cut:-i_cut]
 
 
 def get_eventnames(file):
@@ -95,33 +75,49 @@ def argsort_trials(file, sort_cond=None, trial_inds=None, align='start_time'):
     return trial_inds
 
 
-def get_trial_spikes_bytrials(file, i_neuron, trial_inds, align='start_time',
-                              t_offset=None):
+def get_trial_spikes_bytrials(file, neurons=None, trial_inds=None,
+                              align='start_time', t_offset=None):
     """Get a list of spike timing for a neuron across trials.
 
     Args:
         file: nwb file handle
-        i_neuron: int, unit index
-        trial_inds: list of ints, trial indices
+        neurons: None or int or list of ints, optional unit indices
+        trial_inds: None or list of ints, trial indices
         align: str, name of event to align to
         t_offset: None or tuple of time, offset to get time
+
+    Returns:
+        trial_spikes: a list of lists, each inner-list contains spikes in
+            one trial, or a list of these for the neurons
     """
 
     trials = file.trials
-    trial_spikes = []  # spike times of different trials
-    neuron_spikes = file.units.spike_times_index[i_neuron]
-    align_times = trials[align].data[:]
-    for i_trial in trial_inds:
-        align_time = align_times[i_trial]
+    if trial_inds is not None:
+        align_times = trials[align].data[trial_inds]
+    else:
+        align_times = trials[align].data[:]
+    if t_offset is None:
+        start_times = align_times - 1
+        stop_times = align_times + 3
+    else:
+        start_times = align_times + t_offset[0]
+        stop_times = align_times + t_offset[1]
 
-        if t_offset is None:
-            start_time = align_time - 1
-            stop_time = align_time + 3
+    single_neuron = False
+    if neurons is None:
+        neurons = range(len(file.units.spike_times_index))
+    if isinstance(neurons, int):
+        neurons = [neurons]
+        single_neuron = True
+
+    all_spikes = []
+    for i_neuron in neurons:
+        neuron_spikes = file.units.spike_times_index[i_neuron]
+        i_starts = np.searchsorted(neuron_spikes, start_times - 1.0)
+        i_stops = np.searchsorted(neuron_spikes, stop_times + 1.0)
+        trial_spikes = [neuron_spikes[i_starts[j]:i_stops[j]] - align_times[j] for j in range(len(align_times))]
+        if single_neuron:
+            return trial_spikes
         else:
-            start_time = align_time + t_offset[0]
-            stop_time = align_time + t_offset[1]
-
-        i_start = np.searchsorted(neuron_spikes, start_time - 1.0)
-        i_stop = np.searchsorted(neuron_spikes, stop_time + 1.0)
-        trial_spikes.append(neuron_spikes[i_start:i_stop] - align_time)
-    return trial_spikes
+            all_spikes.append(trial_spikes)
+    return all_spikes

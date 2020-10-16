@@ -6,7 +6,6 @@ from .preprocess import (get_eventnames, argsort_trials,
                          get_trial_spikes_bytrials, get_conditions, get_rate)
 
 
-
 def example_trial_raster(file, i_trial=0, n_neurons=50):
     """Spike raster for an example trial across neurons."""
     # Plot raster
@@ -50,7 +49,7 @@ def example_neuron_raster(file, i_neuron=0, n_trials=100, align='start_time',
         file, sort_cond, trial_inds=trial_inds, align=align)
 
     trial_spikes = get_trial_spikes_bytrials(
-        file, i_neuron=i_neuron, trial_inds=trial_inds, align=align)
+        file, neurons=i_neuron, trial_inds=trial_inds, align=align)
 
     cmap = mpl.cm.get_cmap('Dark2')
     plt.figure(figsize=(5, 5))
@@ -78,7 +77,7 @@ def example_neuron_rate(file, i_neuron=0, n_trials=100, align='start_time',
     trial_inds = argsort_trials(file, sort_cond, trial_inds=trial_inds, align=align)
 
     trial_spikes = get_trial_spikes_bytrials(
-        file, i_neuron=i_neuron, trial_inds=trial_inds, align=align)
+        file, neurons=i_neuron, trial_inds=trial_inds, align=align)
 
     rate, times = get_rate(trial_spikes)
 
@@ -113,7 +112,7 @@ def example_neuron_rate_bycondition(
         trial_inds = np.where(trials[cond].data[:] == cond_val)[0]
 
         trial_spikes = get_trial_spikes_bytrials(
-            file, i_neuron=i_neuron, trial_inds=trial_inds, align=align)
+            file, neurons=i_neuron, trial_inds=trial_inds, align=align)
 
         rate, times = get_rate(trial_spikes)
         rate_list.append(rate)
