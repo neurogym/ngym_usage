@@ -9,8 +9,9 @@ import matplotlib.pyplot as plt
 from .dpca import dPCA
 from .jpca import jPCA
 from .jpca_utils import plot_projections
-from analysis.preprocess import get_trial_spikes_bytrials, get_rate, trial_avg_rate
-
+from analysis.preprocess import trial_avg_rate
+from .tda import TDA
+import analysis.decomposition.tda_plots as tda_plots
 
 
 def run_dpca(file, cond, align='start_time'):
@@ -88,8 +89,8 @@ def run_plot_dpca(file, cond, align='start_time'):
     return plt
 
 
-def run_plot_jpca(file, cond, align='start_time'):
-    """Run and plot jPCA.
+def run_jpca(file, cond, align='start_time'):
+    """Run jPCA.
 
     Args:
         file: NWB file handle
@@ -111,9 +112,49 @@ def run_plot_jpca(file, cond, align='start_time'):
     results = jpca.fit(datas, times=list(times), tstart=times[
         0], tend=times[-1])
     projected, full_data_var, pca_var_capt, jpca_var_capt = results
+    return projected, full_data_var, pca_var_capt, jpca_var_capt
+
+
+def run_plot_jpca(file, cond, align='start_time'):
+    """Run and plot jPCA.
+
+    Args:
+        file: NWB file handle
+        cond: str, the task condition to demixing
+        align: str, event to align trials to
+    """
+    results = run_jpca(file, cond, align=align)
+    projected = results[0]
 
     # Plot the projected data
     s = np.max(projected)*0.03
     plot_projections(projected, circle_size=s, arrow_size=s)
 
-    # return plt
+
+def run_plot_tda(file, align='start_time'):
+    """Run and plot Tensor-decomposition-analysis."""
+    trials = file.trials
+    n_trials = len(trials)
+
+    # Loop through all condition values of the task condition
+    trial_inds_list = [[i] for i in range(n_trials)]
+    data, times = trial_avg_rate(file, trial_inds_list, align=align)
+
+    # Fit an tda of models, 4 random replicates / optimization runs per model rank
+    tda = TDA(fit_method="ncp_hals")
+    tda.fit(data, ranks=range(1, 9), replicates=4)
+
+    fig, axes = plt.subplots(1, 2)
+    # plot reconstruction error as a function of num components.
+    tda_plots.plot_objective(tda, ax=axes[0])
+    # plot model similarity as a function of num components.
+    tda_plots.plot_similarity(tda, ax=axes[1])
+    fig.tight_layout()
+
+    # Plot the low-d factors for an example model, e.g. rank-2, first optimization run / replicate.
+    num_components = 2
+    replicate = 0
+    tda_plots.plot_factors(
+        tda.factors(num_components)[replicate])  # plot the low-d factors
+
+    plt.show()
