@@ -137,10 +137,12 @@ def arg_parser():
                         help='stages used for training',
                         type=int, nargs='+', default=None)
 
-    # trial_hist wrapper parameters
+    # trial-hist/side-bias wrappers
     parser.add_argument('--probs', help='prob of main transition in the ' +
                         'n-alt task with trial hist.', type=float,
                         default=None)
+
+    # trial_hist wrapper parameters
     parser.add_argument('--block_dur',
                         help='dur. of block in the trial-hist wrappr (trials)',
                         type=int, default=None)
