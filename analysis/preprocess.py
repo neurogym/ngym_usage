@@ -8,12 +8,14 @@ import quantities as qt
 from analysis.statistics import myrate
 
 
-def get_rate(spikes, t_start=0, t_stop=1, sampling_period=0.01):
+def get_rate(spikes, t_start=0., t_stop=1., sampling_period=0.01):
     """Get rate for a list of spikes across trials.
 
     Args:
         spikes: a list of spike times, or a list of lists of spike times
-        times: a list of time points, must be uniformly spaced
+        t_start: float, start time
+        t_stop: float, stop time
+        sampling_period: float, sampling period
 
     Return:
         rate: a list of firing rate
@@ -121,3 +123,45 @@ def get_trial_spikes_bytrials(file, neurons=None, trial_inds=None,
         else:
             all_spikes.append(trial_spikes)
     return all_spikes
+
+
+def trial_avg_rate(file, trial_inds_list, align='start_time'):
+    """Get trial-averaged rate.
+
+    Args:
+        file: NWB file handle
+        trial_inds_list: a list of lists. Each inner list contains trial inds
+            to be averaged over
+        align: str, even to align trials to
+
+    Return:
+        rate: np array (n_cond, n_time, n_neuron).
+            Here n_cond = len(trial_inds_list)
+    """
+    t_start, t_stop = -1., 1.
+    sampling_period = 0.01
+
+    n_cond = len(trial_inds_list)
+    n_time = int((t_stop - t_start) / sampling_period)
+    n_neuron = len(file.units.spike_times_index)
+
+    R = np.zeros((n_cond, n_time, n_neuron))
+
+    # Loop through all condition values of the task condition
+    for j in range(n_cond):
+        trial_inds = trial_inds_list[j]
+        trial_spikes = get_trial_spikes_bytrials(
+            file, neurons=range(n_neuron), trial_inds=trial_inds, align=align)
+
+        n_trials = np.zeros(n_neuron)
+        for i_neuron in range(n_neuron):
+            n_trials[i_neuron] = len(trial_spikes[i_neuron])  # num of trials
+            trial_spikes[i_neuron] = np.concatenate(trial_spikes[i_neuron])
+
+        # Get rate for all neurons (time, units)
+        rate, times = get_rate(trial_spikes, t_start=t_start,
+                               t_stop=t_stop,
+                               sampling_period=sampling_period)
+        R[j] = rate / n_trials
+
+    return R, times
