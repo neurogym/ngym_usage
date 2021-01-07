@@ -310,7 +310,16 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
             sv_folder = folder + key
             test_kwargs[key]['seed'] = seed
             if train_mode == 'RL':
-                ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+                if '_all' not in key:
+                    ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+                else:
+                    files = glob.glob(folder+'/model_*_steps.zip')
+                    for f in files:
+                        model_name = os.path.basename(f)
+                        sv_f = folder+key+'_'+model_name[:-4]
+                        ga.get_activity(folder, alg, sv_folder=sv_f,
+                                        model_name=model_name, **test_kwargs[key])
+
             elif train_mode == 'SL':
                 stps_ep = sl_kwargs['steps_per_epoch']
                 wraps_sl = deepc(wrappers_kwargs)
