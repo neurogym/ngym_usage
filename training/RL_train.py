@@ -158,7 +158,8 @@ def run_network(envid):
         config: dict of network, training configurations
     """
     modelpath = get_modelpath(envid)
-    files = glob.glob(str(modelpath)+'/model*')
+    files = glob.glob(modelpath)
+    # files = glob.glob(str(modelpath)+'/model*')
     if len(files) > 0:
         with open(modelpath / 'config.json') as f:
             config = json.load(f)

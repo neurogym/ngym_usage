@@ -137,10 +137,12 @@ def arg_parser():
                         help='stages used for training',
                         type=int, nargs='+', default=None)
 
-    # trial_hist wrapper parameters
+    # trial-hist/side-bias/persistence wrappers
     parser.add_argument('--probs', help='prob of main transition in the ' +
                         'n-alt task with trial hist.', type=float,
                         default=None)
+
+    # trial_hist wrapper parameters
     parser.add_argument('--block_dur',
                         help='dur. of block in the trial-hist wrappr (trials)',
                         type=int, default=None)
@@ -166,6 +168,12 @@ def arg_parser():
     parser.add_argument('--fix_2AFC', help='whether 2AFC is included in tr. mats',
                         type=bool, default=None)
 
+    # performance wrapper
+    parser.add_argument('--perf_th', help='perf. threshold to change block',
+                        type=float, default=None)
+    parser.add_argument('--perf_w', help='window to compute performance',
+                        type=int, default=None)
+
     # time-out wrapper parameters
     parser.add_argument('--time_out', help='time-out after error', type=int,
                         default=None)
@@ -173,7 +181,18 @@ def arg_parser():
                         ' duration (should not be larger than stimulus period' +
                         'actual limit will be randomly choose for each trial)',
                         type=int, default=None)
-
+    
+    # perf-phases wrapper
+    parser.add_argument('--start_ph', help='where to start the phase counter',
+                        type=int, default=None)
+    parser.add_argument('--end_ph', help='where to end the phase counter',
+                        type=int, default=None)
+    parser.add_argument('--step_ph', help='steps for phase counter',
+                        type=int, default=None)
+    parser.add_argument('--wait',
+                        help='number of trials to wait before changing the phase',
+                        type=int, default=None)
+   
     # variable-nch wrapper parameters
     parser.add_argument('--block_nch',
                         help='dur. of blck in the variable-nch wrapper (trials)',
@@ -220,6 +239,9 @@ def make_env(env_id, rank, seed=0, wrapps={}, **kwargs):
         env = gym.make(env_id, **kwargs)
         env.seed(seed + rank)
         for wrap in wrapps.keys():
+            indx = wrap.find('_bis')
+            if indx != -1:
+                wrap = wrap[:indx]
             if not (wrap == 'MonitorExtended-v0' and rank != 0):
                 env = apply_wrapper(env, wrap, wrapps[wrap])
         return env
@@ -290,7 +312,16 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
             sv_folder = folder + key
             test_kwargs[key]['seed'] = seed
             if train_mode == 'RL':
-                ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+                if '_all' not in key:
+                    ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+                else:
+                    files = glob.glob(folder+'/model_*_steps.zip')
+                    for f in files:
+                        model_name = os.path.basename(f)
+                        sv_f = folder+key+'_'+model_name[:-4]
+                        ga.get_activity(folder, alg, sv_folder=sv_f,
+                                        model_name=model_name, **test_kwargs[key])
+
             elif train_mode == 'SL':
                 stps_ep = sl_kwargs['steps_per_epoch']
                 wraps_sl = deepc(wrappers_kwargs)

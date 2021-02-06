@@ -65,7 +65,7 @@ def func_to_script(code):
 
 
 COLABURL = 'https://colab.research.google.com/github/'
-ROOTURL = 'neurogym/ngym_usage/blob/master/supervised/auto_notebooks/'
+ROOTURL = 'neurogym/ngym_usage/blob/master/training/auto_notebooks/'
 
 
 def auto_generate_notebook(envid, learning='supervised'):
