@@ -180,6 +180,8 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--blocks_probs', help='probability of each block',
                         type=float, nargs='+', default=None)
+    parser.add_argument('--prob_12', help='percentage of 2AFC trials',
+                        type=float, default=None)
 
     # reaction-time wrapper params
     parser.add_argument('--urgency', help='float value that will be added to the' +
