@@ -167,6 +167,8 @@ def arg_parser():
                         type=float, default=None)
     parser.add_argument('--fix_2AFC', help='whether 2AFC is included in tr. mats',
                         type=bool, default=None)
+    parser.add_argument('--rand_pretrain', help='pretrain with random transitions',
+                        type=bool, default=None)
 
     # performance wrapper
     parser.add_argument('--perf_th', help='perf. threshold to change block',
