@@ -137,10 +137,12 @@ def arg_parser():
                         help='stages used for training',
                         type=int, nargs='+', default=None)
 
-    # trial_hist wrapper parameters
+    # trial-hist/side-bias/persistence wrappers
     parser.add_argument('--probs', help='prob of main transition in the ' +
                         'n-alt task with trial hist.', type=float,
                         default=None)
+
+    # trial_hist wrapper parameters
     parser.add_argument('--block_dur',
                         help='dur. of block in the trial-hist wrappr (trials)',
                         type=int, default=None)
@@ -164,6 +166,8 @@ def arg_parser():
     parser.add_argument('--death_prob', help='prob. of starting next generation',
                         type=float, default=None)
     parser.add_argument('--fix_2AFC', help='whether 2AFC is included in tr. mats',
+                        type=bool, default=None)
+    parser.add_argument('--rand_pretrain', help='pretrain with random transitions',
                         type=bool, default=None)
 
     # performance wrapper
@@ -197,6 +201,8 @@ def arg_parser():
                         type=int, default=None)
     parser.add_argument('--blocks_probs', help='probability of each block',
                         type=float, nargs='+', default=None)
+    parser.add_argument('--prob_12', help='percentage of 2AFC trials',
+                        type=float, default=None)
 
     # reaction-time wrapper params
     parser.add_argument('--urgency', help='float value that will be added to the' +
@@ -308,7 +314,16 @@ def run(alg, alg_kwargs, task, task_kwargs, wrappers_kwargs, expl_params,
             sv_folder = folder + key
             test_kwargs[key]['seed'] = seed
             if train_mode == 'RL':
-                ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+                if '_all' not in key:
+                    ga.get_activity(folder, alg, sv_folder, **test_kwargs[key])
+                else:
+                    files = glob.glob(folder+'/model_*_steps.zip')
+                    for f in files:
+                        model_name = os.path.basename(f)
+                        sv_f = folder+key+'_'+model_name[:-4]
+                        ga.get_activity(folder, alg, sv_folder=sv_f,
+                                        model_name=model_name, **test_kwargs[key])
+
             elif train_mode == 'SL':
                 stps_ep = sl_kwargs['steps_per_epoch']
                 wraps_sl = deepc(wrappers_kwargs)
