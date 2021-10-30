@@ -14,18 +14,20 @@ from .tda import TDA
 import analysis.decomposition.tda_plots as tda_plots
 
 
-def run_dpca(file, cond, align='start_time'):
+def run_dpca(file, cond, align='start_time', cond_vals=None):
     """Run and plot dPCA.
 
     Args:
         file: NWB file handle
         cond: str, the task condition to demixing
         align: str, event to align trials to
+        cond_vals: list or None. List of condition values to consider
     """
     trials = file.trials
     trial_conds = trials[cond].data[:]
 
-    cond_vals = np.unique(trial_conds)
+    if cond_vals is None:
+        cond_vals = np.unique(trial_conds)
     n_neuron = len(file.units.spike_times_index)
 
     # Loop through all condition values of the task condition
@@ -44,7 +46,7 @@ def run_dpca(file, cond, align='start_time'):
     return Z, times
 
 
-def run_plot_dpca(file, cond, align='start_time'):
+def run_plot_dpca(file, cond, align='start_time', cond_vals=None):
     """Run and plot dPCA.
 
     This code is meant to be adapted and modified by the user. Now it only
@@ -54,13 +56,15 @@ def run_plot_dpca(file, cond, align='start_time'):
         file: NWB file handle
         cond: str, the task condition to demixing
         align: str, event to align trials to
+        cond_vals: list or None. List of condition values to consider
     """
 
-    Z, times = run_dpca(file, cond, align)
+    Z, times = run_dpca(file, cond, align, cond_vals=cond_vals)
 
     trials = file.trials
     trial_conds = trials[cond].data[:]
-    cond_vals = np.unique(trial_conds)
+    if cond_vals is None:
+        cond_vals = np.unique(trial_conds)
     n_cond = len(cond_vals)
 
     # Plotting results
@@ -138,6 +142,7 @@ def run_plot_tda(file, align='start_time'):
 
     # Loop through all condition values of the task condition
     trial_inds_list = [[i] for i in range(n_trials)]
+    # TODO: This is very slow for moderate datasets with many trials
     data, times = trial_avg_rate(file, trial_inds_list, align=align)
 
     # Fit an tda of models, 4 random replicates / optimization runs per model rank

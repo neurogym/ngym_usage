@@ -53,7 +53,7 @@ class CTRNN(nn.Module):
                            pre_activation * self.alpha)
         return h_new
 
-    def forward(self, input, hidden=None):
+    def   forward(self, input, hidden=None):
         """Propogate input through the network."""
         if hidden is None:
             hidden = self.init_hidden(input)
