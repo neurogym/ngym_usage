@@ -52,6 +52,7 @@ for i in range(20):
     perf = get_performance(net, env, num_trial=200)
     print('Average performance {:0.2f} for task {:s}'.format(perf, tasks[i]))
 
+print("Computing and plotting task variance")
 # Compute and Plot task variance
 task_variance_list = list()
 for i in range(20):
@@ -145,3 +146,6 @@ for il, l in enumerate(np.unique(labels)):
 ax.set_xlim([0, len(labels)])
 ax.set_ylim([-1, 1])
 ax.axis('off')
+
+plt.savefig(os.path.join('files','clusterplot.png'),bbox_inches='tight',dpi=280)
+fig.show()
