@@ -17,6 +17,27 @@ from neurogym.utils.scheduler import RandomSchedule
 
 from models import RNNNet, get_performance
 
+import argparse
+import numpy as np
+import random
+
+parser = argparse.ArgumentParser(description='seed parser')
+parser.add_argument('--seed', type=int, default=42,
+                    help='random seed')
+
+args = parser.parse_args()
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    print(f"Running with seed {seed}!")
+
+set_seed(args.seed)
+
 #create save directory
 path = Path('.') / 'files'
 os.makedirs(path, exist_ok=True)
@@ -38,9 +59,11 @@ ob_size = env.observation_space.shape[0]
 act_size = env.action_space.n
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
+print(f"Device: {device}")
+
 model = RNNNet(input_size=ob_size, hidden_size=256, output_size=act_size,
                dt=env.dt).to(device)
+print(model)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 

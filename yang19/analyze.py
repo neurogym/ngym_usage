@@ -12,6 +12,27 @@ from neurogym.wrappers.block import MultiEnvs
 
 from models import RNNNet, get_performance
 
+import argparse
+import numpy as np
+import random
+
+parser = argparse.ArgumentParser(description='seed parser')
+parser.add_argument('--seed', type=int, default=42,
+                    help='random seed')
+
+args = parser.parse_args()
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    print(f"Running with seed {seed}!")
+
+set_seed(args.seed)
+
 
 # Environment
 timing = {'fixation': ('constant', 500)}

@@ -1,13 +1,6 @@
 import numpy as np
-
 import torch
 import torch.nn as nn
-
-import torch
-import torch.nn as nn
-from torch.nn import init
-from torch.nn import functional as F
-import math
 
 
 class CTRNN(nn.Module):
@@ -51,10 +44,13 @@ class CTRNN(nn.Module):
     def recurrence(self, input, hidden):
         """Recurrence helper."""
         pre_activation = self.input2h(input) + self.h2h(hidden)
+
+        # add recurrent unit noise
         mean = torch.zeros_like(pre_activation)
         std = self._sigma
         noise_rec = torch.normal(mean=mean, std=std)
         pre_activation += noise_rec
+
         h_new = hidden * self.oneminusalpha + torch.relu(pre_activation) * self.alpha
         return h_new
 
