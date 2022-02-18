@@ -6,7 +6,7 @@ https://www.nature.com/articles/s41593-018-0310-2
 
 import os
 import time
-import numpy as np
+from pathlib import Path
 import torch
 import torch.nn as nn
 
@@ -16,6 +16,10 @@ from neurogym.wrappers import ScheduleEnvs
 from neurogym.utils.scheduler import RandomSchedule
 
 from models import RNNNet, get_performance
+
+#create save directory
+path = Path('.') / 'files'
+os.makedirs(path, exist_ok=True)
 
 # Environment
 kwargs = {'dt': 100}
