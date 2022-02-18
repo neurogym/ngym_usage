@@ -22,7 +22,7 @@ class CTRNN(nn.Module):
         hidden: (batch, hidden_size), initial hidden activity
     """
 
-    def __init__(self, input_size, hidden_size, dt=None, **kwargs):
+    def __init__(self, input_size, hidden_size, sigma_rec=0.05, dt=None, **kwargs):
         super().__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -33,6 +33,8 @@ class CTRNN(nn.Module):
             alpha = dt / self.tau
         self.alpha = alpha
         self.oneminusalpha = 1 - alpha
+
+        self._sigma = np.sqrt(2 / alpha) * sigma_rec # recurrent unit noise
 
         self.input2h = nn.Linear(input_size, hidden_size)
         self.h2h = nn.Linear(hidden_size, hidden_size)
@@ -49,8 +51,11 @@ class CTRNN(nn.Module):
     def recurrence(self, input, hidden):
         """Recurrence helper."""
         pre_activation = self.input2h(input) + self.h2h(hidden)
-        h_new = torch.relu(hidden * self.oneminusalpha +
-                           pre_activation * self.alpha)
+        mean = torch.zeros_like(pre_activation)
+        std = self._sigma
+        noise_rec = torch.normal(mean=mean, std=std)
+        pre_activation += noise_rec
+        h_new = hidden * self.oneminusalpha + torch.relu(pre_activation) * self.alpha
         return h_new
 
     def   forward(self, input, hidden=None):
